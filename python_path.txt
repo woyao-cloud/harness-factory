@@ -1,0 +1,2 @@
+bash: which: command not found
+bash: ls: command not found

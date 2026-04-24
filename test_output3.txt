@@ -1,0 +1,37 @@
+INFO:context_manager.manager:Budget at 80.2% ¡ª compressing
+INFO:context_manager.manager:Compressed 1 items, saved 2184 tokens (new L1 size: 4 msgs)
+
+=== Prompt messages: 9 ===
+  [COMPRESSED_BLOCK] (17t) [anchor: anc_afae5d8837] [Compressed: TOOL_RESULT, 2194t, 500 lines]...
+  [SYSTEM] (7t) You are a helpful assistant....
+  [USER_INPUT] (7t) Explain the code in src/main.py...
+  [FILE_CONTENT] (1000t) def foo():\n    pass\ndef foo():\n    pass\ndef foo():\n    pass\ndef foo():\n    pass\n...
+  [USER_INPUT] (85t) Follow-up question 0: what about the code? blah  blah  blah  blah  blah  blah  b...
+  [USER_INPUT] (85t) Follow-up question 1: what about the code? blah  blah  blah  blah  blah  blah  b...
+  [USER_INPUT] (85t) Follow-up question 2: what about the code? blah  blah  blah  blah  blah  blah  b...
+  [USER_INPUT] (85t) Follow-up question 3: what about the code? blah  blah  blah  blah  blah  blah  b...
+  [USER_INPUT] (85t) Follow-up question 4: what about the code? blah  blah  blah  blah  blah  blah  b...
+
+=== Budget: 1456/4000 (36.4%) ===
+
+=== Supplemental context (8292 chars) ===
+<supplemental_context>
+The following content was restored from compressed history ¡ª it is available for this inference round only:
+
+--- restored block 1 ---
+[Restored: content]
+line 0: x = 0
+line 1: x = 1
+line 2: x = 2
+line 3: x = 3
+line 4: x = 4
+line 5: x = 5
+line 6: x = 6
+line 7: x = 7
+line 8: x =
+INFO:context_manager.manager:Session test_sess closed
+
+=== Cross-session anchors for src/main.py: 0 ===
+INFO:context_manager.manager:Session test_sess_2 closed
+
+=== ALL TESTS PASSED ===
