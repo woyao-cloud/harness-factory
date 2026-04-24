@@ -1,0 +1,143 @@
+hello from bash
+bash: python: command not found
+bash: which: command not found
+bash: which: command not found
+bash: which: command not found
+bash: ls: command not found
+bash: ls: command not found
+%PATH%
+C:\Program Files\Python312\Scripts\;C:\Program Files\Python312\;D:\Program Files (x86)\VMware\VMware Workstation\bin\;C:\WINDOWS\system32;C:\WINDOWS;C:\WINDOWS\System32\Wbem;C:\WINDOWS\System32\WindowsPowerShell\v1.0\;C:\WINDOWS\System32\OpenSSH\;D:\tools\nvm;D:\tools\nodejs;C:\Program Files\Microsoft VS Code\bin;D:\tools\apache-maven-3.9.0\bin;D:\java\jdk-21\bin;D:\tools\k3d\k3d;D:\tools\k8s\kubectl;c:\minikube;C:\ProgramData\chocolatey\bin;d:\tools\sqlite3;C:\Users\laido\AppData\Local\Android\Sdk\platform-tools;C:\Users\laido\AppData\Local\Android\Sdk\emulator;C:\Users\laido\AppData\Local\Android\Sdk\tools;C:\Users\laido\AppData\Local\Android\Sdk\tools\bin;C:\Program Files\Vagrant\bin;D:\tools\gradle-8.2.1\bin;C:\Program Files\nodejs\;D:\tools\go\bin;C:\Program Files\Git\cmd;C:\Program Files\dotnet\;C:\Program Files\Docker\Docker\resources\bin;C:\Users\laido\.bun\bin;D:\tools\ffmpeg-8.1\bin;C:\Users\laido\.cargo\bin;C:\Program Files (x86)\Microsoft\Edge\Application;C:\Program Files\Zulu\zulu-17\bin\;C:\Program Files\Common Files\Oracle\Java\javapath;C:\Program Files (x86)\Common Files\Oracle\Java\javapath;D:\Program Files (x86)\VMware\VMware Workstation\bin\;C:\windows\system32;C:\windows;C:\windows\System32\Wbem;C:\windows\System32\WindowsPowerShell\v1.0\;C:\windows\System32\OpenSSH\;C:\Program Files\Docker\Docker\resources\bin;C:\Program Files\Git\cmd;D:\tools\nvm;D:\tools\nodejs;C:\Program Files\Microsoft VS Code\bin;D:\tools\apache-maven-3.9.0\bin;C:\Program Files\Zulu\zulu-17\bin;D:\tools\k3d\k3d;D:\tools\k8s\kubectl;c:\minikube;D:\tools\HashiCorp\Vagrant\bin;C:\Program Files\nodejs\;C:\ProgramData\chocolatey\bin;d:\tools\sqlite3;C:\Users\laido\AppData\Local\Android\Sdk\platform-tools;C:\Users\laido\AppData\Local\Android\Sdk\emulator;C:\Users\laido\AppData\Local\Android\Sdk\tools;C:\Users\laido\AppData\Local\Android\Sdk\tools\bin;C:\Ruby32-x64\bin;C:\Users\laido\AppData\Local\Pro;C:\Users\laido\AppData\Local\Microsoft\WindowsApps;C:\Users\laido\AppData\Roaming\npm;C:\Users\laido\go\bin;C:\Users\laido\.dotnet\tools;D:\projects\ollama;d:\tools\cursor\resources\app\bin;d:\tools\Zed\bin;C:\Users\laido\AppData\Local\Pandoc\;C:\Users\laido\AppData\Local\Python\bin;C:\Users\laido\AppData\Local\Microsoft\WinGet\Links;D:\tools\ffmpeg-8.1\bin;:/c/Users/laido/.claude/plugins/cache/claude-plugins-official/lua-lsp/1.0.0/bin:/c/Users/laido/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/bin
+bash: py: command not found
+bash: /c/Users/laido/AppData/Local/Programs/Python/Python312/python: No such file or directory
+Python 3.12.7
+OK: harness created, name=research-harness
+Tools: ['read', 'write', 'glob', 'grep', 'web_search', 'web_fetch']
+Turn OK: text='[mock] received: hello'
+Read ALLOW: ALLOW
+Write DENY: DENY
+Web ALLOW: ALLOW
+ALL TESTS PASSED
+============================= test session starts =============================
+platform win32 -- Python 3.12.7, pytest-9.0.3, pluggy-1.6.0 -- C:\Program Files\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: D:\claude-code-project\langchain\agentsFactory
+plugins: anyio-4.13.0, langsmith-0.7.30
+collecting ... collected 12 items
+
+tests/test_harnesses.py::TestResearchHarness::test_create_research_harness PASSED [  8%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_tools_registered PASSED [ 16%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_turn PASSED [ 25%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_security_policies FAILED [ 33%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_custom_root PASSED [ 41%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_system_prompt PASSED [ 50%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_with_recovery PASSED [ 58%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_tool_executors_wired PASSED [ 66%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_empty_research_root FAILED [ 75%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_double_close PASSED [ 83%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_turn_after_close PASSED [ 91%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_with_explicit_model PASSED [100%]
+
+================================== FAILURES ===================================
+_________ TestResearchHarness.test_research_harness_security_policies _________
+
+self = <test_harnesses.TestResearchHarness object at 0x000001D313D72210>
+
+    def test_research_harness_security_policies(self) -> None:
+        """Security policies are configured:
+        - Read tools under research_root ¡ú ALLOW
+        - Web tools ¡ú ALLOW
+        - Write tools ¡ú DENY (by ``allow_read_only`` policy)
+        """
+        from harnesses import create_research_harness
+    
+        with tempfile.TemporaryDirectory() as tmp:
+            research_dir = Path(tmp) / "papers"
+            research_dir.mkdir()
+            harness = create_research_harness(research_root=str(research_dir))
+            harness.start()
+    
+            gate = harness.security
+    
+            # Read tool under allowed path ¡ú ALLOW
+            result = gate.approve(
+                ToolCall(
+                    tool_name="read",
+                    params={"file_path": str(research_dir / "paper.pdf")},
+                )
+            )
+            assert result.decision.name == "ALLOW", (
+                f"Expected ALLOW for read, got {result.decision}"
+            )
+    
+            # Write tool ¡ú DENY from allow_read_only policy
+            result = gate.approve(
+                ToolCall(
+                    tool_name="write",
+                    params={"file_path": str(research_dir / "notes.md")},
+                )
+            )
+            assert result.decision.name == "DENY", (
+                f"Expected DENY for write, got {result.decision}"
+            )
+    
+            # Web search ¡ú ALLOW (not matched by any policy, no path restriction)
+            result = gate.approve(ToolCall(tool_name="web_search", params={"query": "test"}))
+            assert result.decision.name == "ALLOW", (
+                f"Expected ALLOW for web_search, got {result.decision}"
+            )
+    
+            # Read tool outside research_root ¡ú DENY by path_prefix
+            result = gate.approve(
+                ToolCall(
+                    tool_name="read",
+                    params={"file_path": str(Path(tmp) / "outside" / "secret.txt")},
+                )
+            )
+>           assert result.decision.name == "DENY", (
+                f"Expected DENY for outside path, got {result.decision}"
+            )
+E           AssertionError: Expected DENY for outside path, got Decision.ALLOW
+E           assert 'ALLOW' == 'DENY'
+E             
+E             - DENY
+E             + ALLOW
+
+tests\test_harnesses.py:125: AssertionError
+____________ TestResearchHarnessEdgeCases.test_empty_research_root ____________
+
+self = <test_harnesses.TestResearchHarnessEdgeCases object at 0x000001D313D71910>
+
+    def test_empty_research_root(self) -> None:
+        """Empty string research_root raises an error."""
+        from harnesses import create_research_harness
+    
+>       with pytest.raises(Exception):
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+E       Failed: DID NOT RAISE <class 'Exception'>
+
+tests\test_harnesses.py:188: Failed
+=========================== short test summary info ===========================
+FAILED tests/test_harnesses.py::TestResearchHarness::test_research_harness_security_policies
+FAILED tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_empty_research_root
+======================== 2 failed, 10 passed in 0.18s =========================
+============================= test session starts =============================
+platform win32 -- Python 3.12.7, pytest-9.0.3, pluggy-1.6.0 -- C:\Program Files\Python312\python.exe
+cachedir: .pytest_cache
+rootdir: D:\claude-code-project\langchain\agentsFactory
+plugins: anyio-4.13.0, langsmith-0.7.30
+collecting ... collected 12 items
+
+tests/test_harnesses.py::TestResearchHarness::test_create_research_harness PASSED [  8%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_tools_registered PASSED [ 16%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_turn PASSED [ 25%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_security_policies PASSED [ 33%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_custom_root PASSED [ 41%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_system_prompt PASSED [ 50%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_with_recovery PASSED [ 58%]
+tests/test_harnesses.py::TestResearchHarness::test_research_harness_tool_executors_wired PASSED [ 66%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_default_root_created PASSED [ 75%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_double_close PASSED [ 83%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_turn_after_close PASSED [ 91%]
+tests/test_harnesses.py::TestResearchHarnessEdgeCases::test_research_harness_with_explicit_model PASSED [100%]
+
+============================= 12 passed in 0.13s ==============================
