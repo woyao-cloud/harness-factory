@@ -75,13 +75,13 @@ def _make_session(bus: MessageBus | None = None) -> Session:
     return Session(SessionConfig(total_budget=64000), bus)
 
 
-def _make_pipeline(cls=Pipeline, **kw) -> Pipeline:
+def _make_pipeline(cls=InteractivePipeline, **kw) -> Pipeline:
     bus = MessageBus()
     session = _make_session(bus)
     llm = MockProvider()
     cfg = PipelineConfig()
     security = SecurityGate()
-    return cls(cfg, session, llm, bus, security, **kw)  # type: ignore[call-arg]
+    return cls(cfg, session, llm, bus, security, **kw)
 
 
 class TestPipelineBase:
@@ -112,7 +112,7 @@ class TestPipelineBase:
         assert isinstance(msgs, list)
 
     def test_llm_tool_format(self) -> None:
-        pipe = _make_pipeline(Pipeline)
+        pipe = _make_pipeline(InteractivePipeline)
         td = ToolDefinition(name="test_tool", description="A test")
         pipe.register_tool(td, lambda **kw: "ok")
 
@@ -474,7 +474,7 @@ class TestRetryPolicy:
 
 
 class TestRetryFunction:
-    async def test_retry_success_first_try(self) -> None:
+    def test_retry_success_first_try(self) -> None:
         calls = 0
 
         async def fn():
@@ -482,11 +482,11 @@ class TestRetryFunction:
             calls += 1
             return "ok"
 
-        result = await retry(fn, RetryPolicy(max_retries=3))
+        result = asyncio_run(retry(fn, RetryPolicy(max_retries=3)))
         assert result == "ok"
         assert calls == 1
 
-    async def test_retry_eventually_succeeds(self) -> None:
+    def test_retry_eventually_succeeds(self) -> None:
         calls = 0
 
         async def fn():
@@ -496,26 +496,28 @@ class TestRetryFunction:
                 raise ConnectionError("transient")
             return "recovered"
 
-        result = await retry(fn, RetryPolicy(max_retries=3, base_delay=0.01, jitter=0))
+        result = asyncio_run(retry(fn, RetryPolicy(max_retries=3, base_delay=0.01, jitter=0)))
         assert result == "recovered"
         assert calls == 3
 
-    async def test_retry_exhausted(self) -> None:
+    def test_retry_exhausted(self) -> None:
         async def fn():
             raise ConnectionError("persistent")
 
         with pytest.raises(ConnectionError):
-            await retry(fn, RetryPolicy(max_retries=2, base_delay=0.01, jitter=0))
+            asyncio_run(retry(fn, RetryPolicy(max_retries=2, base_delay=0.01, jitter=0)))
 
-    async def test_non_retryable_raises_immediately(self) -> None:
+    def test_non_retryable_raises_immediately(self) -> None:
         async def fn():
             raise ValueError("fatal")
 
         with pytest.raises(ValueError):
-            await retry(
-                fn,
-                RetryPolicy(max_retries=3, base_delay=0.01),
-                classifier=ErrorClassifier(),
+            asyncio_run(
+                retry(
+                    fn,
+                    RetryPolicy(max_retries=3, base_delay=0.01),
+                    classifier=ErrorClassifier(),
+                )
             )
 
 
@@ -797,7 +799,8 @@ class TestAutoSaveManager:
         mgr = AutoSaveManager(store, interval=9999)  # very long interval
         mgr.update_checkpoint(session_id="s1", turn_count=1, messages=[])
 
-        # Manually force _last_save to now so the interval hasn't passed
+        import time
+        mgr._last_save = time.time()  # pretend we just saved
         handler = mgr.create_handler()
         from runtime.types import EventPayload
         handler(EventPayload(event=PipelineEvent.PIPELINE_TURN))

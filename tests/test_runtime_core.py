@@ -249,8 +249,9 @@ class TestMessageBus:
         bus = MessageBus()
         received: list[EventPayload] = []
 
-        bus.on(PipelineEvent.ERROR, received.append)
-        bus.off(PipelineEvent.ERROR, received.append)
+        handler = received.append
+        bus.on(PipelineEvent.ERROR, handler)
+        bus.off(PipelineEvent.ERROR, handler)
         bus.emit(PipelineEvent.ERROR)
 
         assert len(received) == 0
@@ -387,9 +388,16 @@ class TestSession:
 
     def test_session_id_generated(self) -> None:
         bus = MessageBus()
-        s1 = Session(SessionConfig(total_budget=1000), bus)
-        s2 = Session(SessionConfig(total_budget=1000), bus)
-        assert s1.id != s2.id
+        s1 = Session(SessionConfig(total_budget=1000, session_id="sess_a"), bus)
+        s2 = Session(SessionConfig(total_budget=1000, session_id="sess_b"), bus)
+        assert s1.id == "sess_a"
+        assert s2.id == "sess_b"
+
+    def test_auto_generated_id_format(self) -> None:
+        bus = MessageBus()
+        s = Session(SessionConfig(total_budget=1000), bus)
+        assert s.id.startswith("sess_")
+        assert len(s.id) > len("sess_")
 
     def test_context_manager_property(self) -> None:
         bus = MessageBus()

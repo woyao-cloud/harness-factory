@@ -710,7 +710,7 @@ class TestAsyncCompressor:
 
     def test_apply_plan(self) -> None:
         comp = AsyncCompressor(CompressorConfig(max_candidates_per_round=5))
-        msgs = [Message(content="x" * 400, msg_type=MessageType.TOOL_RESULT)]
+        msgs = [Message(content="x" * 5000, msg_type=MessageType.TOOL_RESULT)]
         plan = comp.create_plan(msgs)
 
         result = comp.apply_plan(plan, msgs, session_id="s1")
@@ -840,7 +840,7 @@ class TestDependencyDetector:
 
     def test_detect_line_number(self) -> None:
         detector = DependencyDetector(DetectorConfig())
-        tc = ToolCall(tool_name="read", params={"file_path": "/project/main.py", "line": 42})
+        tc = ToolCall(tool_name="read", params={"file_path": "/other/file.py", "line": 42})
         anchors = [
             AnchorRef(
                 anchor_id="a1",

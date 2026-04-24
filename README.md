@@ -8,10 +8,11 @@ D:\claude-code-project\langchain\agentsFactory
 	 头脑风暴:1.与用户直接交互的app，处于一个动态过程，会被快速升级迭代，HarnessFactory不断升级Harness->促进app 迭代更新
 	 <<260424#
      HarnessFactory
-     
+
 ## Test
 pip install pytest
 python -m pytest tests/test_tool_registry.py -v -k "TestReadTool" 
 python -m pytest tests/ -v
 python -m pytest tests/test_runtime_core.py tests/test_runtime_advanced.py -v
+python -m pytest tests/test_context_manager.py -v
 
