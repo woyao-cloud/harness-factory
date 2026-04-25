@@ -53,7 +53,7 @@ class TestResearchHarness:
 
         harness = create_research_harness()
         tool_names = {t.name for t in harness.pipeline.tool_definitions}
-        expected = {"read", "write", "glob", "grep", "web_search", "web_fetch"}
+        expected = {"read", "write", "edit", "glob", "grep", "web_search", "web_fetch"}
         assert expected.issubset(tool_names), f"Missing: {expected - tool_names}"
 
     def test_research_harness_turn(self) -> None:

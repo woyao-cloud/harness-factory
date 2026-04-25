@@ -155,6 +155,101 @@ class TestWriteTool:
         result = asyncio_run(tool.execute("/tmp/evil.txt", "bad"))
         assert not result.success
 
+    # ── WriteTool enhancements ────────────────────────────────────────
+
+    def test_write_append_mode(self, tmp_path: Path) -> None:
+        f = tmp_path / "append.txt"
+        f.write_text("line1\n", encoding="utf-8")
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "line2\n", mode="append"))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "line1\nline2\n"
+
+    def test_write_append_new_file(self, tmp_path: Path) -> None:
+        target = tmp_path / "new_append.txt"
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(target), "content", mode="append"))
+        assert result.success
+        assert target.read_text(encoding="utf-8") == "content"
+
+    def test_write_insert_at_line(self, tmp_path: Path) -> None:
+        f = tmp_path / "insert.txt"
+        f.write_text("line1\nline3\n", encoding="utf-8")
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "line2\n", insert_at=2))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "line1\nline2\nline3\n"
+
+    def test_write_insert_at_first_line(self, tmp_path: Path) -> None:
+        f = tmp_path / "insert_first.txt"
+        f.write_text("line2\nline3\n", encoding="utf-8")
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "line1\n", insert_at=1))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "line1\nline2\nline3\n"
+
+    def test_write_insert_at_new_file(self, tmp_path: Path) -> None:
+        target = tmp_path / "insert_new.txt"
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(target), "content", insert_at=5))
+        assert result.success
+        assert target.read_text(encoding="utf-8") == "content\n"
+
+    def test_write_insert_at_negative(self, tmp_path: Path) -> None:
+        f = tmp_path / "insert_neg.txt"
+        f.write_text("content", encoding="utf-8")
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "x", insert_at=0))
+        assert not result.success
+
+    def test_write_mode_append_with_insert_at_conflict(self, tmp_path: Path) -> None:
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(tmp_path / "x.txt"), "x", mode="append", insert_at=1))
+        assert not result.success
+
+    def test_write_create_parents_false_allowed(self, tmp_path: Path) -> None:
+        existing = tmp_path / "subdir"
+        existing.mkdir()
+        target = existing / "file.txt"
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(target), "content", create_parents=False))
+        assert result.success
+
+    def test_write_create_parents_false_blocked(self, tmp_path: Path) -> None:
+        target = tmp_path / "nonexistent" / "file.txt"
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(target), "content", create_parents=False))
+        assert not result.success
+
+    def test_write_content_validator_accepts(self, tmp_path: Path) -> None:
+        target = tmp_path / "validated.txt"
+        tool = WriteTool(
+            allowed_roots=(str(tmp_path),),
+            content_validator=lambda c: None,
+        )
+        result = asyncio_run(tool.execute(str(target), "ok"))
+        assert result.success
+
+    def test_write_content_validator_rejects(self, tmp_path: Path) -> None:
+        target = tmp_path / "rejected.txt"
+        tool = WriteTool(
+            allowed_roots=(str(tmp_path),),
+            content_validator=lambda c: "no py files allowed" if ".py" in c else None,
+        )
+        result = asyncio_run(tool.execute(str(target), "print('hello') # .py"))
+        assert not result.success
+        assert "no py files allowed" in result.text
+
+    def test_write_invalid_mode(self, tmp_path: Path) -> None:
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(tmp_path / "x.txt"), "x", mode="invalid"))
+        assert not result.success
+
+    def test_write_encoding_validation(self, tmp_path: Path) -> None:
+        tool = WriteTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(tmp_path / "bad.txt"), "\ud800"))
+        assert not result.success
+
 
 # =============================================================================
 # EditTool
@@ -184,6 +279,95 @@ class TestEditTool:
         result = asyncio_run(tool.execute(str(f), "a", "X"))
         assert result.success
         assert f.read_text(encoding="utf-8") == "X a a"
+
+    # ── EditTool enhancements ─────────────────────────────────────────
+
+    def test_regex_replace(self, tmp_path: Path) -> None:
+        f = tmp_path / "regex.txt"
+        f.write_text("hello 123 world 456", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), r"\d+", "NUM", use_regex=True))
+        assert result.success
+        # Only first occurrence replaced by default
+        assert f.read_text(encoding="utf-8") == "hello NUM world 456"
+
+    def test_regex_replace_all(self, tmp_path: Path) -> None:
+        f = tmp_path / "regex_all.txt"
+        f.write_text("hello 123 world 456", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), r"\d+", "NUM", use_regex=True, occurrence=-1))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "hello NUM world NUM"
+
+    def test_regex_invalid(self, tmp_path: Path) -> None:
+        f = tmp_path / "bad_regex.txt"
+        f.write_text("test", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), r"[invalid", "x", use_regex=True))
+        assert not result.success
+
+    def test_occurrence_specific(self, tmp_path: Path) -> None:
+        f = tmp_path / "occ_specific.txt"
+        f.write_text("a a a a", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "a", "X", occurrence=3))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "a a X a"
+
+    def test_occurrence_all(self, tmp_path: Path) -> None:
+        f = tmp_path / "occ_all.txt"
+        f.write_text("a a a a", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "a", "X", occurrence=-1))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "X X X X"
+
+    def test_occurrence_not_found(self, tmp_path: Path) -> None:
+        f = tmp_path / "occ_missing.txt"
+        f.write_text("a a", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "a", "X", occurrence=5))
+        assert not result.success
+
+    def test_line_range(self, tmp_path: Path) -> None:
+        f = tmp_path / "linerange.txt"
+        f.write_text("line1\nline2\nline3\nline4\n", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "line", "ROW", start_line=2, end_line=3, occurrence=-1))
+        assert result.success
+        assert f.read_text(encoding="utf-8") == "line1\nROW2\nROW3\nline4\n"
+
+    def test_line_range_not_found(self, tmp_path: Path) -> None:
+        f = tmp_path / "linerange_miss.txt"
+        f.write_text("apple\nbanana\n", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        # "app" exists in line 1, but range is lines 2-10
+        result = asyncio_run(tool.execute(str(f), "app", "X", start_line=2, end_line=10))
+        assert not result.success
+
+    def test_line_range_invalid(self, tmp_path: Path) -> None:
+        f = tmp_path / "linerange_inv.txt"
+        f.write_text("content", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "x", "y", start_line=5, end_line=3))
+        assert not result.success
+
+    def test_line_range_beyond_file(self, tmp_path: Path) -> None:
+        f = tmp_path / "linerange_beyond.txt"
+        f.write_text("only one line", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "x", "y", start_line=10))
+        assert not result.success
+
+    def test_diff_in_result_data(self, tmp_path: Path) -> None:
+        f = tmp_path / "diff_test.txt"
+        f.write_text("hello world", encoding="utf-8")
+        tool = EditTool(allowed_roots=(str(tmp_path),))
+        result = asyncio_run(tool.execute(str(f), "world", "claude"))
+        assert result.success
+        assert "diff" in result.data
+        assert "-hello world" in result.data["diff"]
+        assert "+hello claude" in result.data["diff"]
 
 
 # =============================================================================

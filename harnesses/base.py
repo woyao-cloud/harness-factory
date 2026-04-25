@@ -10,6 +10,7 @@ from pathlib import Path
 
 from runtime.security import allow_path_prefix, allow_read_only
 from tool_registry import (
+    EditTool,
     GlobTool,
     GrepTool,
     ReadTool,
@@ -24,9 +25,10 @@ def install_file_tools(
     registry: ToolRegistry,
     allowed_roots: tuple[str, ...],
 ) -> None:
-    """Register Read, Write, Glob, Grep tools scoped to ``allowed_roots``."""
+    """Register Read, Write, Edit, Glob, Grep tools scoped to ``allowed_roots``."""
     registry.register(ReadTool(allowed_roots=allowed_roots))
     registry.register(WriteTool(allowed_roots=allowed_roots))
+    registry.register(EditTool(allowed_roots=allowed_roots))
     registry.register(GlobTool(allowed_roots=allowed_roots))
     registry.register(GrepTool(allowed_roots=allowed_roots))
 

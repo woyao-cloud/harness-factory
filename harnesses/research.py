@@ -25,7 +25,7 @@ from runtime.harness import HarnessConfig, HarnessRuntime
 from runtime.recovery import PipelineRecovery
 from runtime.types import HarnessSpec
 from tool_registry import ToolRegistry
-from tool_registry.file_tools import GlobTool, GrepTool, ReadTool, WriteTool
+from tool_registry.file_tools import EditTool, GlobTool, GrepTool, ReadTool, WriteTool
 from tool_registry.web_tools import WebFetchTool, WebSearchTool
 
 from .base import ensure_dir, read_only_path_policy
@@ -43,6 +43,7 @@ You are a research assistant with access to web search and file tools.
 - ``web_fetch`` — Fetch content from a URL
 - ``read`` — Read a local file
 - ``write`` — Write content to a local file
+- ``edit`` — Edit a file by replacing text
 - ``glob`` — List files matching a pattern
 - ``grep`` — Search for text within files
 
@@ -58,6 +59,8 @@ You are a research assistant with access to web search and file tools.
    methodologies, or citations across your paper collection.
 5. **Save notes & summaries** — Use ``write`` to save your analyses,
    summaries, and research notes.
+6. **Edit existing files** — Use ``edit`` to modify specific parts of
+   saved notes and papers without rewriting the entire file.
 
 ## Guidelines
 
@@ -124,6 +127,7 @@ def create_research_harness(
     # ── Register tools ────────────────────────────────────────────────
     registry.register(ReadTool(allowed_roots=allowed))
     registry.register(WriteTool(allowed_roots=allowed))
+    registry.register(EditTool(allowed_roots=allowed))
     registry.register(GlobTool(allowed_roots=allowed))
     registry.register(GrepTool(allowed_roots=allowed))
     registry.register(WebSearchTool())

@@ -9,11 +9,12 @@ All tools include:
 
 from __future__ import annotations
 
+import difflib
 import os
 import re
 import stat
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
 from .base import BaseTool, ParamSpec, ToolResult
 
@@ -165,23 +166,94 @@ class WriteTool(BaseTool):
     parameters = (
         ParamSpec("file_path", description="Path to the file to write"),
         ParamSpec("content", description="Content to write"),
+        ParamSpec(
+            "mode",
+            description='Write mode: "write" (overwrite) or "append" (append to end)',
+            required=False,
+        ),
+        ParamSpec(
+            "insert_at",
+            type="integer",
+            description="Line number to insert content at (1-based). Cannot be used with append mode.",
+            required=False,
+        ),
+        ParamSpec(
+            "create_parents",
+            type="boolean",
+            description="Create parent directories if they don't exist",
+            required=False,
+        ),
     )
 
     def __init__(
         self,
         allowed_roots: tuple[str, ...] | None = None,
         max_bytes: int = FILE_TOOL_DEFAULTS["max_write_bytes"],
+        content_validator: Callable[[str], str | None] | None = None,
     ) -> None:
         self._allowed = allowed_roots or FILE_TOOL_DEFAULTS["allowed_roots"]
         self._max_bytes = max_bytes
+        self._content_validator = content_validator
 
-    async def execute(self, file_path: str, content: str) -> ToolResult:
+    async def execute(
+        self,
+        file_path: str,
+        content: str,
+        mode: str = "write",
+        insert_at: int | None = None,
+        create_parents: bool = True,
+    ) -> ToolResult:
+        # Size check
         if len(content) > self._max_bytes:
             return ToolResult.err(
                 f"Content too large ({len(content):,} bytes, max {self._max_bytes:,})"
             )
+
+        # Encoding validation
+        try:
+            content.encode("utf-8")
+        except UnicodeEncodeError as exc:
+            return ToolResult.err(f"Content is not valid UTF-8: {exc}")
+
+        # Content validation hook
+        if self._content_validator is not None:
+            error = self._content_validator(content)
+            if error is not None:
+                return ToolResult.err(error)
+
+        # Mode validation
+        if mode not in ("write", "append"):
+            return ToolResult.err(f"Invalid mode '{mode}'. Use 'write' or 'append'.")
+        if mode == "append" and insert_at is not None:
+            return ToolResult.err("Cannot use both append mode and insert_at together.")
+
         try:
             path = _safe_path(file_path, self._allowed)
+        except PermissionError as exc:
+            return ToolResult.err(str(exc))
+
+        # Parent directory check
+        if not create_parents and not path.parent.exists():
+            return ToolResult.err(f"Parent directory does not exist: {path.parent}")
+
+        # Content assembly
+        try:
+            if mode == "append" and path.exists():
+                existing = path.read_text(encoding="utf-8")
+                content = existing + content
+
+            elif insert_at is not None and path.exists():
+                lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+                if insert_at < 1:
+                    return ToolResult.err("insert_at must be >= 1")
+                idx = min(insert_at - 1, len(lines))
+                lines.insert(idx, content if content.endswith("\n") else content + "\n")
+                content = "".join(lines)
+        except Exception as exc:
+            return ToolResult.err(f"Failed to read '{file_path}' for editing: {exc}")
+
+        # Write
+        try:
             path.parent.mkdir(parents=True, exist_ok=True)
             path.write_text(content, encoding="utf-8")
         except PermissionError as exc:
@@ -201,14 +273,38 @@ class WriteTool(BaseTool):
 
 
 class EditTool(BaseTool):
-    """Edit a file by replacing text at specific line numbers."""
+    """Edit a file by replacing text at specific locations."""
 
     name = "edit"
-    description = "Replace lines in a file with new content using line numbers"
+    description = "Replace text in a file (substring or regex, with optional line-range targeting)"
     parameters = (
         ParamSpec("file_path", description="Path to the file to edit"),
-        ParamSpec("old_string", description="Text to find and replace (substring)"),
+        ParamSpec("old_string", description="Text to find and replace (substring or regex pattern)"),
         ParamSpec("new_string", description="New text to insert"),
+        ParamSpec(
+            "start_line",
+            type="integer",
+            description="Start line for search range (1-based, inclusive)",
+            required=False,
+        ),
+        ParamSpec(
+            "end_line",
+            type="integer",
+            description="End line for search range (1-based, inclusive)",
+            required=False,
+        ),
+        ParamSpec(
+            "use_regex",
+            type="boolean",
+            description="Treat old_string as a regex pattern instead of literal substring",
+            required=False,
+        ),
+        ParamSpec(
+            "occurrence",
+            type="integer",
+            description="Which occurrence to replace: 0=first (default), -1=all, N=Nth (1-based)",
+            required=False,
+        ),
     )
 
     def __init__(self, allowed_roots: tuple[str, ...] | None = None) -> None:
@@ -219,29 +315,112 @@ class EditTool(BaseTool):
         file_path: str,
         old_string: str,
         new_string: str,
+        start_line: int | None = None,
+        end_line: int | None = None,
+        use_regex: bool = False,
+        occurrence: int = 0,
     ) -> ToolResult:
         try:
             path = _safe_path(file_path, self._allowed)
             content = _read_file_content(path, max_bytes=10_000_000)
-
-            if old_string not in content:
-                return ToolResult.err(
-                    f"String not found in '{file_path}': "
-                    f"{old_string[:80]}{'...' if len(old_string) > 80 else ''}"
-                )
-
-            new_content = content.replace(old_string, new_string, 1)
-            changes = content.count(old_string)
-            path.write_text(new_content, encoding="utf-8")
-
         except (FileNotFoundError, PermissionError, ValueError) as exc:
             return ToolResult.err(str(exc))
         except Exception as exc:
-            return ToolResult.err(f"Failed to edit '{file_path}': {exc}")
+            return ToolResult.err(f"Failed to read '{file_path}': {exc}")
 
+        # Validate line-range params
+        if start_line is not None and start_line < 1:
+            return ToolResult.err("start_line must be >= 1")
+        if end_line is not None and end_line < 1:
+            return ToolResult.err("end_line must be >= 1")
+        if start_line is not None and end_line is not None and end_line < start_line:
+            return ToolResult.err("end_line must be >= start_line")
+
+        # Slice to line range if specified
+        lines = content.splitlines(keepends=True)
+        s = (start_line - 1) if start_line is not None else 0
+        e = end_line if end_line is not None else len(lines)
+        if start_line is not None and s >= len(lines):
+            return ToolResult.err(
+                f"start_line {start_line} is beyond file length ({len(lines)} lines)"
+            )
+
+        before = "".join(lines[:s])
+        region = "".join(lines[s:e])
+        after = "".join(lines[e:])
+
+        # Search and replace
+        changes = 0
+        try:
+            if use_regex:
+                pattern = re.compile(old_string)
+                count = 1 if occurrence == 0 else (0 if occurrence == -1 else occurrence)
+                new_region, changes_made = pattern.subn(new_string, region, count=count)
+                changes = changes_made
+            else:
+                if occurrence == 0:
+                    # First occurrence
+                    idx = region.find(old_string)
+                    if idx == -1:
+                        changes = 0
+                        new_region = region
+                    else:
+                        new_region = region[:idx] + new_string + region[idx + len(old_string):]
+                        changes = 1
+                elif occurrence == -1:
+                    # All occurrences
+                    new_region = region.replace(old_string, new_string)
+                    changes = region.count(old_string)
+                else:
+                    # Nth occurrence (1-based)
+                    idx = -1
+                    found = 0
+                    for _ in range(occurrence):
+                        prev = idx
+                        idx = region.find(old_string, idx + 1)
+                        if idx == -1:
+                            return ToolResult.err(
+                                f"Occurrence {occurrence} not found "
+                                f"(only {found} found in search range)"
+                            )
+                        found += 1
+                    new_region = region[:idx] + new_string + region[idx + len(old_string):]
+                    changes = 1
+        except re.error as exc:
+            return ToolResult.err(f"Invalid regex pattern: {exc}")
+
+        if changes == 0:
+            return ToolResult.err(
+                f"String not found in '{file_path}': "
+                f"{old_string[:80]}{'...' if len(old_string) > 80 else ''}"
+            )
+
+        # Reassemble
+        new_content = before + new_region + after
+
+        # Compute diff
+        diff_lines = list(difflib.unified_diff(
+            content.splitlines(keepends=True),
+            new_content.splitlines(keepends=True),
+            fromfile=file_path,
+            tofile=file_path,
+        ))
+        diff_text = "".join(diff_lines[:200])  # cap at 200 lines
+
+        # Write
+        try:
+            path.write_text(new_content, encoding="utf-8")
+        except PermissionError as exc:
+            return ToolResult.err(str(exc))
+        except Exception as exc:
+            return ToolResult.err(f"Failed to write '{file_path}': {exc}")
+
+        msg = f"Edited {file_path}: replaced {changes} occurrence(s)"
+        if diff_text:
+            msg += f"\n{diff_text}"
         return ToolResult.ok(
-            text=f"Edited {file_path}: replaced 1 occurrence{'(all)' if changes > 1 else ''}",
-            data={"path": str(path), "occurrences": changes},
+            text=msg,
+            data={"path": str(path), "occurrences": changes, "diff": diff_text},
         )
 
 
