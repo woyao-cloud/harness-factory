@@ -193,7 +193,7 @@ class TestWriteTool:
         tool = WriteTool(allowed_roots=(str(tmp_path),))
         result = asyncio_run(tool.execute(str(target), "content", insert_at=5))
         assert result.success
-        assert target.read_text(encoding="utf-8") == "content\n"
+        assert target.read_text(encoding="utf-8") == "content"
 
     def test_write_insert_at_negative(self, tmp_path: Path) -> None:
         f = tmp_path / "insert_neg.txt"
