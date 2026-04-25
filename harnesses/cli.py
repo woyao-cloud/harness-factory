@@ -26,7 +26,7 @@ def _run_async(coro):
 
 @click.command()
 @click.argument("query", required=False)
-@click.option("--provider", default="anthropic", help="LLM provider (anthropic, openai)")
+@click.option("--provider", default="ollama", help="LLM provider (ollama, anthropic, openai)")
 @click.option("--api-key", help="API key (defaults to corresponding env var)")
 @click.option("--model", help="Model name override")
 @click.option("--research-root", default="./research", help="Research workspace directory")

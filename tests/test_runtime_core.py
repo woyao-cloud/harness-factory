@@ -117,7 +117,7 @@ class TestToolDefinition:
 class TestInferenceConfig:
     def test_defaults(self) -> None:
         c = InferenceConfig()
-        assert c.model == "claude-sonnet-4-20250514"
+        assert c.model == "deepseek-v4-flash:cloud"
         assert c.max_tokens == 4096
         assert c.temperature == 0.7
         assert c.thinking is False

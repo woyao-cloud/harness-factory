@@ -7,6 +7,7 @@ import os
 import pytest
 
 from harnesses.provider import ProviderInfo, create_provider, list_providers, register_provider
+from runtime.llm_provider import OpenAIProvider
 
 
 def test_register_and_list() -> None:
@@ -69,10 +70,25 @@ def test_create_provider_missing_key() -> None:
             os.environ["ANTHROPIC_API_KEY"] = old
 
 
+def test_create_ollama_provider() -> None:
+    """create_provider('ollama') returns OpenAIProvider with Ollama base_url."""
+    provider = create_provider("ollama", api_key="ignored")
+    assert provider is not None
+    assert type(provider).__name__ == "OpenAIProvider"
+    assert "localhost:11434" in str(provider._client.base_url)
+
+
+def test_openai_provider_with_base_url() -> None:
+    """OpenAIProvider accepts optional base_url parameter."""
+    provider = OpenAIProvider(api_key="sk-test", base_url="http://custom:8080/v1")
+    assert "custom:8080" in str(provider._client.base_url)
+
+
 def test_list_providers_includes_builtin() -> None:
-    """Built-in providers (anthropic, openai) are registered by default."""
+    """Built-in providers (ollama, anthropic, openai) are registered by default."""
     providers = list_providers()
     names = [p.name for p in providers]
+    assert "ollama" in names
     assert "anthropic" in names
     assert "openai" in names
 

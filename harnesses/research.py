@@ -88,7 +88,7 @@ Use clear Markdown formatting. For paper summaries, use this structure:
 def create_research_harness(
     research_root: str = "./research",
     llm=None,
-    model: str = "claude-sonnet-4-20250514",
+    model: str = "deepseek-v4-flash:cloud",
     recovery: PipelineRecovery | None = None,
     checkpoint_store=None,
     max_tool_rounds: int = 25,

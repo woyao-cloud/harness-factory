@@ -7,16 +7,17 @@
 3. [架构总览](#3-架构总览)
 4. [HarnessRuntime — 核心编排器](#4-harnessruntime--核心编排器)
 5. [Harness 工厂](#5-harness-工厂)
-6. [ToolRegistry — 工具注册与执行](#6-toolregistry--工具注册与执行)
-7. [SecurityGate — 安全策略链](#7-securitygate--安全策略链)
-8. [Pipeline — REPL 循环策略](#8-pipeline--repl-循环策略)
-9. [LLM Provider — 模型抽象层](#9-llm-provider--模型抽象层)
-10. [ContextManager — 上下文生命周期](#10-contextmanager--上下文生命周期)
-11. [错误恢复与熔断](#11-错误恢复与熔断)
-12. [流式输出](#12-流式输出)
-13. [检查点与持久化](#13-检查点与持久化)
-14. [自定义 Harness](#14-自定义-harness)
-15. [API 速查表](#15-api-速查表)
+6. [Provider 系统](#provider-系统)
+7. [ToolRegistry — 工具注册与执行](#6-toolregistry--工具注册与执行)
+8. [SecurityGate — 安全策略链](#7-securitygate--安全策略链)
+9. [Pipeline — REPL 循环策略](#8-pipeline--repl-循环策略)
+10. [LLM Provider — 模型抽象层](#9-llm-provider--模型抽象层)
+11. [ContextManager — 上下文生命周期](#10-contextmanager--上下文生命周期)
+12. [错误恢复与熔断](#11-错误恢复与熔断)
+13. [流式输出](#12-流式输出)
+14. [检查点与持久化](#13-检查点与持久化)
+15. [自定义 Harness](#14-自定义-harness)
+16. [API 速查表](#15-api-速查表)
 
 ---
 
@@ -307,6 +308,54 @@ ResearchHarness 内置了结构化摘要提示词，指导 LLM 按以下格式�
 **Limitations:** Methodological concerns or scope constraints.
 
 **Links:** [URLs or file paths]
+```
+
+### Provider 系统
+
+`harnesses/provider.py` 提供了可扩展的 LLM Provider 注册和工厂功能。
+
+**内置 Provider：**
+
+| 名称 | 类 | 环境变量 | 默认模型 |
+|------|-----|---------|---------|
+| `anthropic` | `AnthropicProvider` | `ANTHROPIC_API_KEY` | `claude-sonnet-4-20250514` |
+| `openai` | `OpenAIProvider` | `OPENAI_API_KEY` | `gpt-4o` |
+
+**使用工厂函数创建 Provider：**
+
+```python
+from harnesses import create_provider
+
+# 基于注册表自动选择
+llm = create_provider("anthropic", api_key="sk-...")
+llm = create_provider("openai", api_key="sk-...")
+
+# API key 优先级：参数 > 环境变量 > 报错
+```
+
+**注册自定义 Provider：**
+
+```python
+from harnesses import register_provider, ProviderInfo, create_provider
+
+def my_factory(api_key: str):
+    return MyCustomProvider(api_key=api_key)
+
+register_provider(
+    ProviderInfo("my_prov", "My custom LLM", "MY_API_KEY", "my-model"),
+    factory=my_factory,
+)
+
+# 然后即可使用
+llm = create_provider("my_prov")
+```
+
+**列出已注册的 Provider：**
+
+```python
+from harnesses import list_providers
+for p in list_providers():
+    print(f"{p.name}: {p.description} (env: {p.env_key})")
 ```
 
 ### 创建更多 Harness（后续）
@@ -936,6 +985,15 @@ __all__ = [
 | `InferenceConfig` | `runtime.types` | 推理参数 |
 | `PipelineEvent` | `runtime.types` | 总线事件类型 |
 | `EventPayload` | `runtime.types` | 事件负载 |
+
+### Provider 系统
+
+| 类型 | 模块 | 说明 |
+|------|------|------|
+| `ProviderInfo` | `harnesses.provider` | Provider 元数据（名称、环境变量、默认模型） |
+| `create_provider(name, api_key)` | `harnesses.provider` | 基于注册表创建 LLM Provider |
+| `register_provider(info, factory)` | `harnesses.provider` | 注册自定义 Provider（含工厂函数） |
+| `list_providers()` | `harnesses.provider` | 列出所有已注册 Provider |
 
 ### 工具系统
 

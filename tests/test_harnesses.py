@@ -45,7 +45,7 @@ class TestResearchHarness:
         assert harness.spec.name == "research-harness"
         assert harness.spec.version == "0.1.0"
         assert harness.spec.pipeline_strategy == "interactive"
-        assert harness.spec.default_model == "claude-sonnet-4-20250514"
+        assert harness.spec.default_model == "deepseek-v4-flash:cloud"
 
     def test_research_harness_tools_registered(self) -> None:
         """All expected tools are registered in the pipeline."""

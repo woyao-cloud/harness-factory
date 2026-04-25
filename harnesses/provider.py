@@ -67,6 +67,11 @@ def _register_builtins() -> None:
                       "OPENAI_API_KEY", "gpt-4o"),
         lambda key: OpenAIProvider(api_key=key),
     )
+    register_provider(
+        ProviderInfo("ollama", "Ollama local models (OpenAI-compatible)",
+                      "OLLAMA_API_KEY", "deepseek-v4-flash:cloud"),
+        lambda key: OpenAIProvider(api_key=key or "ollama", base_url="http://localhost:11434"),
+    )
 
 
 _register_builtins()

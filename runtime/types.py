@@ -126,7 +126,7 @@ ToolExecutor = Callable[..., Any]
 class InferenceConfig:
     """Parameters for a single LLM inference call."""
 
-    model: str = "claude-sonnet-4-20250514"
+    model: str = "deepseek-v4-flash:cloud"
     max_tokens: int = 4096
     temperature: float = 0.7
     stop_sequences: tuple[str, ...] = ()
@@ -198,7 +198,7 @@ class HarnessSpec:
     tools: tuple[ToolDefinition, ...] = ()
     system_prompt_template: str = ""
     pipeline_strategy: str = "interactive"  # interactive | auto | stream
-    default_model: str = "claude-sonnet-4-20250514"
+    default_model: str = "deepseek-v4-flash:cloud"
     config: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
 
