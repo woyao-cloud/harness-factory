@@ -21,7 +21,10 @@ python -m pytest tests/test_context_manager.py -v
 
   # 单次查询
   python -m harnesses "Find papers on AI"
- python -m harnesses research "深圳高三二模数学试卷难度分析报告" --provider openai
+ python -m harnesses research "深圳高三二模数学试卷难度分析报告"
+ python -m harnesses research "Find papers on AI"
+
+ --provider openai
   # 或带 research 子命令
   python -m harnesses research "Find papers on AI"
 
@@ -49,3 +52,27 @@ python -m pytest tests/test_context_manager.py -v
     --help               显示帮助
 
   如果测试的话直接 python -m harnesses --mock "test query" 就能看到效果。
+
+
+## 问题及解决方法
+  1.Pass --api-key or set the ANTHROPIC_API_KEY environment variable to provide an API key. 换ollama
+
+  2.>python -m harnesses research "Find papers on AI"
+Tool search_papers failed
+Traceback (most recent call last):
+  File "D:\claude-code-project\langchain\agentsFactory\runtime\pipeline.py", line 148, in _tool_loop
+    raise ValueError(f"No executor for tool '{tool_call.tool_name}'")
+ValueError: No executor for tool 'search_papers'
+增加以下提示词到research.py
+RESEARCH_PROMPT = """\
+You are a research assistant with access to web search and file tools.
+
+## Available tools (use ONLY these exact tool names)
+
+- ``web_search`` — Search the web for academic papers and resources
+- ``web_fetch`` — Fetch content from a URL
+- ``read`` — Read a local file
+- ``write`` — Write content to a local file
+- ``glob`` — List files matching a pattern
+- ``grep`` — Search for text within files
+3. 环境变量中配置

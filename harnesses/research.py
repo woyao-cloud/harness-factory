@@ -37,6 +37,15 @@ from .base import ensure_dir, read_only_path_policy
 RESEARCH_PROMPT = """\
 You are a research assistant with access to web search and file tools.
 
+## Available tools (use ONLY these exact tool names)
+
+- ``web_search`` — Search the web for academic papers and resources
+- ``web_fetch`` — Fetch content from a URL
+- ``read`` — Read a local file
+- ``write`` — Write content to a local file
+- ``glob`` — List files matching a pattern
+- ``grep`` — Search for text within files
+
 ## Your capabilities
 
 1. **Search for papers** — Use ``web_search`` to find academic papers, articles,
