@@ -142,6 +142,19 @@ class Usage:
     cache_write_tokens: int | None = None
     cache_read_tokens: int | None = None
 
+    def __add__(self, other: Usage) -> Usage:
+        """Accumulate two Usage records into a new Usage."""
+        def _add_opt(a: int | None, b: int | None) -> int | None:
+            if a is None and b is None:
+                return None
+            return (a or 0) + (b or 0)
+        return Usage(
+            input_tokens=self.input_tokens + other.input_tokens,
+            output_tokens=self.output_tokens + other.output_tokens,
+            cache_write_tokens=_add_opt(self.cache_write_tokens, other.cache_write_tokens),
+            cache_read_tokens=_add_opt(self.cache_read_tokens, other.cache_read_tokens),
+        )
+
 
 @dataclass(frozen=True)
 class InferenceResult:

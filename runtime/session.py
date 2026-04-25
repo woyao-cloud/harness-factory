@@ -9,7 +9,14 @@ from typing import Any
 
 from context_manager import ContextManager, ManagerConfig, Message, MessageType
 from .message_bus import EventHandler, MessageBus
-from .types import EventPayload, PipelineEvent, PipelinePhase, SessionState, UserInput
+from .types import (
+    EventPayload,
+    PipelineEvent,
+    PipelinePhase,
+    SessionState,
+    Usage,
+    UserInput,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +63,7 @@ class Session:
         self._started_at: datetime | None = None
         self._ended_at: datetime | None = None
         self._turn_count = 0
+        self._total_usage = Usage()
 
     # ── Properties ───────────────────────────────────────────────────────
 
@@ -78,6 +86,15 @@ class Session:
     @property
     def bus(self) -> MessageBus:
         return self._bus
+
+    @property
+    def total_usage(self) -> Usage:
+        """Accumulated token usage across all turns in this session."""
+        return self._total_usage
+
+    def record_usage(self, usage: Usage) -> None:
+        """Accumulate a single inference's usage into session total."""
+        self._total_usage = self._total_usage + usage
 
     # ── Lifecycle ────────────────────────────────────────────────────────
 
@@ -123,8 +140,16 @@ class Session:
             phase=PipelinePhase.CLOSED,
             session_id=self._id,
             turn_count=self._turn_count,
+            total_usage={
+                "input_tokens": self._total_usage.input_tokens,
+                "output_tokens": self._total_usage.output_tokens,
+            },
         )
-        logger.info("Session %s closed after %d turns", self._id, self._turn_count)
+        logger.info(
+            "Session %s closed after %d turns (in: %d, out: %d tokens)",
+            self._id, self._turn_count,
+            self._total_usage.input_tokens, self._total_usage.output_tokens,
+        )
 
     # ── Message recording ────────────────────────────────────────────────
 

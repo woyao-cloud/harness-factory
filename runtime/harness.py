@@ -26,6 +26,7 @@ from .types import (
     PipelineEvent,
     StepResult,
     ToolDefinition,
+    Usage,
     UserInput,
 )
 
@@ -177,6 +178,11 @@ class HarnessRuntime:
     @property
     def checkpoint_store(self) -> CheckpointStore | None:
         return self._checkpoint_store
+
+    @property
+    def total_usage(self) -> "Usage":
+        """Accumulated token usage across all turns in this session."""
+        return self._session.total_usage
 
     # ── Lifecycle ────────────────────────────────────────────────────────
 

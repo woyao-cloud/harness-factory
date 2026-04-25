@@ -182,6 +182,7 @@ class Pipeline(ABC):
                 self._cfg.inference_config,
             )
 
+            self._session.record_usage(result.usage)
             self._session.record_assistant_text(result.text)
             final_text = result.text
 
@@ -189,6 +190,7 @@ class Pipeline(ABC):
                 PipelineEvent.AFTER_INFERENCE,
                 phase=PipelinePhase.AFTER_INFERENCE,
                 tool_round=rounds,
+                usage=result.usage,
             )
 
         return final_text, rounds
@@ -250,6 +252,7 @@ class InteractivePipeline(Pipeline):
             self._cfg.inference_config,
         )
 
+        self._session.record_usage(result.usage)
         self._session.record_assistant_text(result.text)
         self._bus.emit(
             PipelineEvent.AFTER_INFERENCE,
@@ -311,6 +314,7 @@ class AutoPipeline(Pipeline):
             self._cfg.inference_config,
         )
 
+        self._session.record_usage(result.usage)
         self._session.record_assistant_text(result.text)
         self._bus.emit(
             PipelineEvent.AFTER_INFERENCE,

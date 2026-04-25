@@ -24,6 +24,17 @@ def _run_async(coro):
     return asyncio.run(coro)
 
 
+def _show_usage(harness) -> None:
+    """Display token usage summary from the session."""
+    usage = harness.total_usage
+    if usage.input_tokens or usage.output_tokens:
+        click.echo(
+            f"── Tokens: {usage.input_tokens} in  |  {usage.output_tokens} out  |  "
+            f"{usage.input_tokens + usage.output_tokens} total ──",
+            err=True,
+        )
+
+
 @click.command()
 @click.argument("query", required=False)
 @click.option("--provider", default="ollama", help="LLM provider (ollama, anthropic, openai)")
@@ -74,6 +85,7 @@ def research(query, provider, api_key, model, research_root, repl, mock):
                 sys.exit(1)
             result = _run_async(harness.turn(UserInput(text=query)))
             click.echo(result.text)
+            _show_usage(harness)
     finally:
         harness.close()
 
@@ -81,21 +93,24 @@ def research(query, provider, api_key, model, research_root, repl, mock):
 def _run_repl(harness: "HarnessRuntime") -> None:
     """Interactive REPL loop."""
     click.echo("Research REPL — type 'exit' to quit")
-    while True:
-        try:
-            text = click.prompt("> ", prompt_suffix="")
-        except (EOFError, KeyboardInterrupt):
-            click.echo("")
-            break
-        if text.lower() in ("exit", "quit"):
-            break
-        if not text.strip():
-            continue
-        try:
-            result = _run_async(harness.turn(UserInput(text=text)))
-            click.echo(result.text)
-        except Exception as exc:
-            click.echo(f"Error: {exc}", err=True)
+    try:
+        while True:
+            try:
+                text = click.prompt("> ", prompt_suffix="")
+            except (EOFError, KeyboardInterrupt):
+                click.echo("")
+                break
+            if text.lower() in ("exit", "quit"):
+                break
+            if not text.strip():
+                continue
+            try:
+                result = _run_async(harness.turn(UserInput(text=text)))
+                click.echo(result.text)
+            except Exception as exc:
+                click.echo(f"Error: {exc}", err=True)
+    finally:
+        _show_usage(harness)
 
 
 if __name__ == "__main__":
