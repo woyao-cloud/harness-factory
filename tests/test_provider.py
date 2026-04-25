@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass
 
 import pytest
 
@@ -43,9 +42,14 @@ def test_create_openai_provider() -> None:
 
 def test_create_provider_with_api_key_arg() -> None:
     """API key passed as arg is used instead of env var."""
-    provider = create_provider("anthropic", api_key="sk-arg-key")
-    assert provider is not None
-    assert type(provider).__name__ == "AnthropicProvider"
+    old = os.environ.pop("ANTHROPIC_API_KEY", None)
+    try:
+        provider = create_provider("anthropic", api_key="sk-arg-key")
+        assert provider is not None
+        assert type(provider).__name__ == "AnthropicProvider"
+    finally:
+        if old is not None:
+            os.environ["ANTHROPIC_API_KEY"] = old
 
 
 def test_create_provider_unknown() -> None:
@@ -56,19 +60,13 @@ def test_create_provider_unknown() -> None:
 
 def test_create_provider_missing_key() -> None:
     """Missing API key (no arg, no env) raises ValueError."""
-    os.environ.pop("ANTHROPIC_API_KEY", None)
-    with pytest.raises(ValueError, match="API key"):
-        create_provider("anthropic")
-
-
-def test_create_provider_with_model_override() -> None:
-    """Model override is passed to the provider constructor."""
-    os.environ["ANTHROPIC_API_KEY"] = "sk-test-fake-key-12345"
+    old = os.environ.pop("ANTHROPIC_API_KEY", None)
     try:
-        provider = create_provider("anthropic", model="claude-opus-4-20250514")
-        assert provider is not None
+        with pytest.raises(ValueError, match="API key"):
+            create_provider("anthropic")
     finally:
-        del os.environ["ANTHROPIC_API_KEY"]
+        if old is not None:
+            os.environ["ANTHROPIC_API_KEY"] = old
 
 
 def test_list_providers_includes_builtin() -> None:

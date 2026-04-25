@@ -18,7 +18,9 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
+
+from runtime.llm_provider import LLMProvider as _LLMProvider
 
 
 @dataclass(frozen=True)
@@ -29,31 +31,42 @@ class ProviderInfo:
     model_default: str
 
 
-# Internal registry: name -> ProviderInfo
-_providers: dict[str, ProviderInfo] = {}
+# Internal registry: name -> (ProviderInfo, optional factory callable)
+_providers: dict[str, tuple[ProviderInfo, Callable[[str], Any] | None]] = {}
 
 
-def register_provider(info: ProviderInfo) -> None:
-    _providers[info.name] = info
+__all__ = [
+    "ProviderInfo",
+    "create_provider",
+    "list_providers",
+    "register_provider",
+]
+
+
+def register_provider(
+    info: ProviderInfo,
+    factory: Callable[[str], Any] | None = None,
+) -> None:
+    _providers[info.name] = (info, factory)
 
 
 def list_providers() -> list[ProviderInfo]:
-    return list(_providers.values())
+    return [info for info, _ in _providers.values()]
 
 
 def _register_builtins() -> None:
-    register_provider(ProviderInfo(
-        name="anthropic",
-        description="Anthropic Claude via anthropic SDK",
-        env_key="ANTHROPIC_API_KEY",
-        model_default="claude-sonnet-4-20250514",
-    ))
-    register_provider(ProviderInfo(
-        name="openai",
-        description="OpenAI GPT via openai SDK",
-        env_key="OPENAI_API_KEY",
-        model_default="gpt-4o",
-    ))
+    from runtime.llm_provider import AnthropicProvider, OpenAIProvider
+
+    register_provider(
+        ProviderInfo("anthropic", "Anthropic Claude via anthropic SDK",
+                      "ANTHROPIC_API_KEY", "claude-sonnet-4-20250514"),
+        lambda key: AnthropicProvider(api_key=key),
+    )
+    register_provider(
+        ProviderInfo("openai", "OpenAI GPT via openai SDK",
+                      "OPENAI_API_KEY", "gpt-4o"),
+        lambda key: OpenAIProvider(api_key=key),
+    )
 
 
 _register_builtins()
@@ -62,15 +75,15 @@ _register_builtins()
 def create_provider(
     name: str,
     api_key: str | None = None,
-    model: str | None = None,
-) -> Any:
-    info = _providers.get(name)
-    if info is None:
+) -> _LLMProvider:
+    entry = _providers.get(name)
+    if entry is None:
         available = ", ".join(_providers)
         raise ValueError(
             f"Unknown provider '{name}'. Available: {available}"
         )
 
+    info, factory = entry
     key = api_key or os.environ.get(info.env_key)
     if not key:
         raise ValueError(
@@ -78,14 +91,9 @@ def create_provider(
             f"{info.env_key} environment variable to provide an API key."
         )
 
-    model_name = model or info.model_default
+    if factory is not None:
+        return factory(key)
 
-    if name == "anthropic":
-        from runtime.llm_provider import AnthropicProvider
-        return AnthropicProvider(api_key=key)
-
-    if name == "openai":
-        from runtime.llm_provider import OpenAIProvider
-        return OpenAIProvider(api_key=key)
-
-    raise ValueError(f"Provider '{name}' is registered but has no factory implementation")
+    raise ValueError(
+        f"Provider '{name}' is registered but has no factory implementation"
+    )

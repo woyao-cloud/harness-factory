@@ -49,7 +49,7 @@ pip install anthropic  # Claude 模型
 pip install openai     # GPT 模型
 ```
 
-### 使用 ResearchHarness
+### 使用 ResearchHarness (Python API)
 
 ```python
 import asyncio
@@ -71,6 +71,53 @@ async def main():
     harness.close()
 
 asyncio.run(main())
+```
+
+### 使用 ResearchHarness (CLI)
+
+项目提供了命令行工具 `research`，支持单次查询和交互式 REPL 模式。
+
+**安装 CLI：**
+
+```bash
+pip install -e .  # 从项目根目录安装
+```
+
+**单次查询模式：**
+
+```bash
+research "Find recent papers on LLM agent architectures"
+```
+
+**交互式 REPL 模式：**
+
+```bash
+research --repl
+```
+
+**指定 LLM Provider：**
+
+```bash
+research "query" --provider openai --api-key sk-... --model gpt-4o
+```
+
+**使用 Mock Provider（测试，无需 API key）：**
+
+```bash
+research --mock "test query"
+```
+
+**指定工作目录：**
+
+```bash
+research "query" --research-root ./my_papers
+```
+
+**模块方式运行：**
+
+```bash
+python -m harnesses "Find papers on AI"
+python -m harnesses research "Find papers on AI"  # 同上
 ```
 
 ### 指定 LLM Provider

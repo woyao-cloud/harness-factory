@@ -16,8 +16,13 @@ Usage::
     harness.close()
 """
 
+from .provider import ProviderInfo, create_provider, list_providers, register_provider
 from .research import create_research_harness
 
 __all__ = [
     "create_research_harness",
+    "create_provider",
+    "register_provider",
+    "list_providers",
+    "ProviderInfo",
 ]
