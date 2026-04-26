@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import asyncio
 import sys
+from datetime import datetime
+from pathlib import Path
 
 import click
 
@@ -33,6 +35,30 @@ def _show_usage(harness) -> None:
             f"{usage.input_tokens + usage.output_tokens} total ──",
             err=True,
         )
+
+
+def _save_result(research_root: str, text: str, topic: str = "") -> str | None:
+    """Save final result text to ``{research_root}/research-output-{timestamp}.md``.
+
+    Returns the file path written, or ``None`` on failure.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    if topic:
+        safe_topic = "".join(c if c.isalnum() or c in " _-" else "_" for c in topic)[:40]
+        filename = f"{safe_topic}_{timestamp}.md"
+    else:
+        filename = f"research-output_{timestamp}.md"
+
+    root = Path(research_root).resolve()
+    root.mkdir(parents=True, exist_ok=True)
+    path = root / filename
+
+    try:
+        path.write_text(text, encoding="utf-8")
+        return str(path)
+    except OSError as exc:
+        click.echo(f"Warning: failed to save result to {path}: {exc}", err=True)
+        return None
 
 
 @click.command()
@@ -74,7 +100,7 @@ def research(query, provider, api_key, model, research_root, repl, mock):
 
     try:
         if repl:
-            _run_repl(harness)
+            _run_repl(harness, research_root)
         else:
             if not query:
                 click.echo(
@@ -84,13 +110,16 @@ def research(query, provider, api_key, model, research_root, repl, mock):
                 )
                 sys.exit(1)
             result = _run_async(harness.turn(UserInput(text=query)))
+            saved = _save_result(research_root, result.text, query)
             click.echo(result.text)
+            if saved:
+                click.echo(f"Result saved to {saved}", err=True)
             _show_usage(harness)
     finally:
         harness.close()
 
 
-def _run_repl(harness: "HarnessRuntime") -> None:
+def _run_repl(harness: "HarnessRuntime", research_root: str = "./research") -> None:
     """Interactive REPL loop."""
     click.echo("Research REPL — type 'exit' to quit")
     try:
@@ -106,6 +135,7 @@ def _run_repl(harness: "HarnessRuntime") -> None:
                 continue
             try:
                 result = _run_async(harness.turn(UserInput(text=text)))
+                _save_result(research_root, result.text, text)
                 click.echo(result.text)
             except Exception as exc:
                 click.echo(f"Error: {exc}", err=True)

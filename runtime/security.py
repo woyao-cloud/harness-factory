@@ -6,6 +6,7 @@ import logging
 import re
 from dataclasses import dataclass, field
 from enum import auto, Enum
+from pathlib import Path
 from typing import Any, Callable
 
 from .types import ToolCall
@@ -46,18 +47,40 @@ def allow_read_only(tool_call: ToolCall) -> ApprovalResult | None:
 
 
 def allow_path_prefix(allowed_prefixes: tuple[str, ...]) -> PolicyFunc:
-    """Factory: allow tools operating on files under a specific directory."""
+    """Factory: allow tools operating on files under a specific directory.
+
+    Checks both the raw file_path parameter and its resolved absolute form,
+    so relative paths (e.g. ``"research/file.md"``) are correctly matched
+    against absolute allowed prefixes (e.g. ``"/home/user/research"``).
+    """
 
     def policy(tool_call: ToolCall) -> ApprovalResult | None:
-        path = (tool_call.params.get("file_path") or tool_call.params.get("path") or "")
-        if not path:
+        raw_path = tool_call.params.get("file_path") or tool_call.params.get("path") or ""
+        if not raw_path:
             return None
-        normalized = path.replace("\\", "/")
+
+        # Normalise the path: try to resolve to absolute, fall back to raw
+        normalised = raw_path.replace("\\", "/")
+        try:
+            resolved = str(Path(raw_path).resolve()).replace("\\", "/")
+        except Exception:
+            resolved = ""
+
+        # Collect candidates: raw form + resolved absolute form (if different)
+        candidates = [normalised]
+        if resolved and resolved != normalised:
+            candidates.append(resolved)
+
+        normalized_raw = raw_path.replace("\\", "/")
         for prefix in allowed_prefixes:
-            if normalized.startswith(prefix.replace("\\", "/")):
+            norm_prefix = prefix.replace("\\", "/")
+            if normalized_raw.startswith(norm_prefix):
                 return ApprovalResult(Decision.ALLOW, f"Path in {prefix}", "path_prefix")
+            for candidate in candidates:
+                if candidate.startswith(norm_prefix):
+                    return ApprovalResult(Decision.ALLOW, f"Path in {prefix}", "path_prefix")
         return ApprovalResult(
-            Decision.DENY, f"Path not in allowed prefixes: {path}", "path_prefix"
+            Decision.DENY, f"Path not in allowed prefixes: {raw_path}", "path_prefix"
         )
 
     return policy

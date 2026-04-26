@@ -19,7 +19,7 @@ from context_manager import ContextManager
 from .llm_provider import LLMProvider
 from .message_bus import MessageBus
 from .request_logger import LLMRequestLogger
-from .security import SecurityGate
+from .security import Decision, SecurityGate
 from .session import Session
 from .types import (
     EventPayload,
@@ -118,7 +118,7 @@ class Pipeline(ABC):
             for tool_call in result.tool_calls:
                 # Security gate
                 approval = self._security.approve(tool_call)
-                if approval.decision.value == "DENY":
+                if approval.decision is Decision.DENY:
                     self._bus.emit(
                         PipelineEvent.TOOL_DENIED,
                         phase=PipelinePhase.BEFORE_TOOL,

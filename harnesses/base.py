@@ -40,14 +40,19 @@ def install_web_tools(registry: ToolRegistry) -> None:
 
 
 def read_only_path_policy(allowed_roots: tuple[str, ...]) -> tuple:
-    """Return security policies that allow reads on roots, deny writes elsewhere.
+    """Return security policies for a research harness workspace.
 
-    Returns (allow_read_only, *path_policies) — a tuple suitable for
-    ``add_policy()`` on ``SecurityGate``.
+    Path-prefix policies are checked *first* so that writes inside allowed
+    roots are permitted.  The ``allow_read_only`` policy runs last as a
+    catch-all to deny mutate tools (e.g. ``bash``, ``exec``) that have no
+    file-path parameter for the path-prefix policies to evaluate.
+
+    Returns a tuple suitable for ``add_policy()`` on ``SecurityGate``.
     """
-    policies = [allow_read_only]
+    policies = []
     for root in allowed_roots:
         policies.append(allow_path_prefix((str(Path(root).resolve()),)))
+    policies.append(allow_read_only)
     return tuple(policies)
 
 
