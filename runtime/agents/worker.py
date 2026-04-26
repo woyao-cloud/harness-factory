@@ -176,7 +176,7 @@ class WorkerAgent(AgentBase):
     ) -> Plan:
         """Apply work report statuses back to the plan."""
         if not report:
-            return plan.with_status(PlanStatus.COMPLETED)
+            return plan.with_status(PlanStatus.IN_PROGRESS)
 
         updated_items = []
         for item in plan.items:

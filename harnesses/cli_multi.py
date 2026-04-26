@@ -74,7 +74,7 @@ def multi_research(query, provider, api_key, model, research_root, repl, mock, v
     coordinator = create_multiagent_coordinator(
         research_root=research_root,
         llm=llm,
-        model=model,
+        **({"model": model} if model else {}),
         max_iterations=max_iterations,
         verbose=verbose,
     )

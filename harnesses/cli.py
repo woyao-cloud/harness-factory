@@ -93,7 +93,7 @@ def research(query, provider, api_key, model, research_root, repl, mock):
     harness = create_research_harness(
         research_root=research_root,
         llm=llm,
-        model=model,
+        **({"model": model} if model else {}),
     )
 
     harness.start()
