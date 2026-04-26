@@ -131,6 +131,7 @@ def create_research_harness(
     registry.register(GlobTool(allowed_roots=allowed))
     registry.register(GrepTool(allowed_roots=allowed))
     registry.register(WebSearchTool())
+    registry.alias("search", "web_search")  # models often call it just "search"
     registry.register(WebFetchTool())
 
     # ── Build spec ───────────────────────────────────────────────────

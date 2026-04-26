@@ -95,6 +95,7 @@ class WebSearchTool(BaseTool):
         query: str,
         max_results: int | None = None,
         engine: str | None = None,
+        **kwargs: Any,
     ) -> ToolResult:
         limit = min(max_results or self._max_results, 20)
         engine_name = engine or self._default_engine
