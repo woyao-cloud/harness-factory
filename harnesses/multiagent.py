@@ -36,6 +36,7 @@ from tool_registry import (
     WebSearchTool,
     WriteTool,
 )
+from tool_registry.registry import _AliasTool
 
 
 def create_multiagent_coordinator(
@@ -77,9 +78,10 @@ def create_multiagent_coordinator(
     # Web tools (planner + worker)
     web_search = WebSearchTool()
     web_fetch = WebFetchTool()
-    web_tools = [web_search, web_fetch]
+    search_alias = _AliasTool(web_search, "search")  # LLMs often call it just "search"
+    web_tools = [web_search, web_fetch, search_alias]
 
-    # Register all tools (for definition extraction)
+    # Register all tools (for reference)
     for tool in file_tools + web_tools:
         registry.register(tool)
 

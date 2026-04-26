@@ -87,6 +87,9 @@ class BaseTool(ABC):
     name: str = ""
     description: str = ""
     parameters: tuple[ParamSpec, ...] = ()
+    # Maps LLM-generated parameter names to actual parameter names.
+    # e.g. {"filepath": "file_path"} — LLMs often drop underscores.
+    param_aliases: dict[str, str] = {}
 
     @property
     def definition(self) -> "ToolDefinition":  # noqa: F821
@@ -117,12 +120,17 @@ class BaseTool(ABC):
     async def safe_execute(self, **params: Any) -> str:
         """Wrapper for the pipeline executor — catches all errors.
 
-        The pipeline expects an ``executor(**params) -> Any`` signature.
-        This method converts structured ``ToolResult`` to the string
-        that the pipeline records in the conversation.
+        Applies ``param_aliases`` mapping so LLM-generated parameter names
+        (e.g. ``filepath``) resolve to the actual parameter names
+        (e.g. ``file_path``).
         """
+        # Normalize parameter names via alias map
+        normalized = dict(params)
+        for alias, actual in self.param_aliases.items():
+            if alias in normalized and actual not in normalized:
+                normalized[actual] = normalized.pop(alias)
         try:
-            result = await self.execute(**params)
+            result = await self.execute(**normalized)
             return str(result.data) if result.data else result.text
         except Exception as exc:
             logger.exception("Tool %s failed", self.name)
