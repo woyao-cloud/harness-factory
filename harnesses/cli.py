@@ -110,10 +110,10 @@ def research(query, provider, api_key, model, research_root, repl, mock):
                 )
                 sys.exit(1)
             result = _run_async(harness.turn(UserInput(text=query)))
-            saved = _save_result(research_root, result.text, query)
+            # 保存文件标识 saved = _save_result(research_root, result.text, query)
             click.echo(result.text)
-            if saved:
-                click.echo(f"Result saved to {saved}", err=True)
+            # if saved:
+                # click.echo(f"Result saved to {saved}", err=True)
             _show_usage(harness)
     finally:
         harness.close()

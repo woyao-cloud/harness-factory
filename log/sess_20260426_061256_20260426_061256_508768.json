@@ -1,0 +1,245 @@
+{
+  "session_id": "sess_20260426_061256",
+  "timestamp": "2026-04-26T06:12:56.508768+00:00",
+  "model": "deepseek-v4-flash:cloud",
+  "system_prompt": "You are a research assistant with access to web search and file tools.\n\n## Available tools (use ONLY these exact tool names)\n\n- ``web_search`` — Search the web for academic papers and resources\n- ``web_fetch`` — Fetch content from a URL\n- ``read`` — Read a local file\n- ``write`` — Write content to a local file\n- ``edit`` — Edit a file by replacing text\n- ``glob`` — List files matching a pattern\n- ``grep`` — Search for text within files\n\n## Your capabilities\n\n1. **Search for papers** — Use ``web_search`` to find academic papers, articles,\n   and resources on any research topic.\n2. **Fetch content** — Use ``web_fetch`` to retrieve paper abstracts,\n   full text, or supplementary materials from URLs.\n3. **Read local papers** — Use ``read`` to examine papers already saved\n   in the research workspace.\n4. **Search within papers** — Use ``grep`` to find specific terms,\n   methodologies, or citations across your paper collection.\n5. **Save notes & summaries** — Use ``write`` to save your analyses,\n   summaries, and research notes.\n6. **Edit existing files** — Use ``edit`` to modify specific parts of\n   saved notes and papers without rewriting the entire file.\n\n## Guidelines\n\n* When asked to research a topic, first search for relevant papers.\n* Provide structured summaries: TL;DR, methodology, key findings, limitations.\n* Track citations and note connections between papers.\n* Suggest related research directions and open questions.\n* Always cite your sources with URLs when available.\n* If you cannot find sufficient information, be transparent about limitations.\n\n## Output style\n\nUse clear Markdown formatting. For paper summaries, use this structure:\n\n```markdown\n## Paper Title (Year)\n\n**TL;DR:** One-sentence summary.\n\n**Methodology:** Key approach and techniques.\n\n**Key Findings:** Bullet-point list of main results.\n\n**Limitations:** Methodological concerns or scope constraints.\n\n**Links:** [URLs or file paths]\n```\n\n## Mandatory: save your final report\n\nWhen you finish researching a topic, you MUST save the complete report to a file\nusing the ``write`` tool:\n\n- **Filename**: ``{topic-slug}-summary.md`` (e.g. ``shenzhen-gaokao-math-2025-summary.md``)\n- **Path**: Save it in the current working directory (just use the filename, no path prefix)\n- **When**: After gathering all information and writing your final analysis\n- **Content**: The full report with all sections, findings, and citations\n\nThis is a mandatory step — do not finish without saving the file.\n",
+  "messages": [
+    {
+      "role": "user",
+      "content": "深圳高三二模数学试卷难度分析报告"
+    }
+  ],
+  "tools": [
+    {
+      "name": "read",
+      "description": "Read the contents of a file at the given path",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Absolute or relative path to the file"
+          },
+          "offset": {
+            "type": "integer",
+            "description": "Starting line number (1-based)"
+          },
+          "limit": {
+            "type": "integer",
+            "description": "Maximum number of lines to return"
+          }
+        },
+        "required": [
+          "file_path"
+        ]
+      }
+    },
+    {
+      "name": "write",
+      "description": "Write content to a file (creates or overwrites)",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file to write"
+          },
+          "content": {
+            "type": "string",
+            "description": "Content to write"
+          },
+          "mode": {
+            "type": "string",
+            "description": "Write mode: \"write\" (overwrite) or \"append\" (append to end)"
+          },
+          "insert_at": {
+            "type": "integer",
+            "description": "Line number to insert content at (1-based). Cannot be used with append mode."
+          },
+          "create_parents": {
+            "type": "boolean",
+            "description": "Create parent directories if they don't exist"
+          }
+        },
+        "required": [
+          "file_path",
+          "content"
+        ]
+      }
+    },
+    {
+      "name": "edit",
+      "description": "Replace text in a file (substring or regex, with optional line-range targeting)",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "file_path": {
+            "type": "string",
+            "description": "Path to the file to edit"
+          },
+          "old_string": {
+            "type": "string",
+            "description": "Text to find and replace (substring or regex pattern)"
+          },
+          "new_string": {
+            "type": "string",
+            "description": "New text to insert"
+          },
+          "start_line": {
+            "type": "integer",
+            "description": "Start line for search range (1-based, inclusive)"
+          },
+          "end_line": {
+            "type": "integer",
+            "description": "End line for search range (1-based, inclusive)"
+          },
+          "use_regex": {
+            "type": "boolean",
+            "description": "Treat old_string as a regex pattern instead of literal substring"
+          },
+          "occurrence": {
+            "type": "integer",
+            "description": "Which occurrence to replace: 0=first (default), -1=all, N=Nth (1-based)"
+          }
+        },
+        "required": [
+          "file_path",
+          "old_string",
+          "new_string"
+        ]
+      }
+    },
+    {
+      "name": "glob",
+      "description": "Search for files and directories matching a glob pattern",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Glob pattern (e.g. '**/*.py', 'src/**/*.ts')"
+          },
+          "path": {
+            "type": "string",
+            "description": "Base directory (defaults to current dir)"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results"
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    },
+    {
+      "name": "grep",
+      "description": "Search file contents using a regular expression pattern",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "pattern": {
+            "type": "string",
+            "description": "Regular expression or text to find"
+          },
+          "path": {
+            "type": "string",
+            "description": "Directory or file to search (defaults to current dir)"
+          },
+          "glob": {
+            "type": "string",
+            "description": "File glob filter (e.g. '*.py', '**/*.ts')"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum matches to return"
+          },
+          "context": {
+            "type": "integer",
+            "description": "Lines of context before and after each match"
+          },
+          "case_sensitive": {
+            "type": "boolean",
+            "description": "Case-sensitive search (default: false)"
+          }
+        },
+        "required": [
+          "pattern"
+        ]
+      }
+    },
+    {
+      "name": "web_search",
+      "description": "Search the web for up-to-date information",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query string"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results (1-20)"
+          },
+          "engine": {
+            "type": "string",
+            "description": "Search engine to use (web, news, scholar)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "search",
+      "description": "Search the web for up-to-date information",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "description": "Search query string"
+          },
+          "max_results": {
+            "type": "integer",
+            "description": "Maximum number of results (1-20)"
+          },
+          "engine": {
+            "type": "string",
+            "description": "Search engine to use (web, news, scholar)"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      }
+    },
+    {
+      "name": "web_fetch",
+      "description": "Fetch the contents of a URL and return it as text",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "The URL to fetch"
+          },
+          "prompt": {
+            "type": "string",
+            "description": "Optional prompt describing what to extract"
+          },
+          "max_bytes": {
+            "type": "integer",
+            "description": "Maximum bytes to read (default 500_000)"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      }
+    }
+  ]
+}
