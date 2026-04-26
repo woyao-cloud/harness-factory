@@ -16,6 +16,7 @@ from typing import Any, Callable
 from .llm_provider import LLMProvider, MockProvider
 from .message_bus import EventHandler, MessageBus
 from .pipeline import AutoPipeline, InteractivePipeline, Pipeline, PipelineConfig, ToolExecutorFn
+from .request_logger import LLMRequestLogger
 from .security import SecurityConfig, SecurityGate
 from .session import Session, SessionConfig
 from .streaming import StreamPipeline
@@ -147,6 +148,7 @@ class HarnessRuntime:
             self._llm,
             self._bus,
             self._security,
+            request_logger=LLMRequestLogger(),
         )
 
     # ── Properties ───────────────────────────────────────────────────────

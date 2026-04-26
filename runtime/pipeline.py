@@ -18,6 +18,7 @@ from context_manager import ContextManager
 
 from .llm_provider import LLMProvider
 from .message_bus import MessageBus
+from .request_logger import LLMRequestLogger
 from .security import SecurityGate
 from .session import Session
 from .types import (
@@ -60,12 +61,14 @@ class Pipeline(ABC):
         llm: LLMProvider,
         bus: MessageBus,
         security: SecurityGate,
+        request_logger: LLMRequestLogger | None = None,
     ) -> None:
         self._cfg = config
         self._session = session
         self._llm = llm
         self._bus = bus
         self._security = security
+        self._request_logger = request_logger or LLMRequestLogger()
 
         # Tool registry
         self._tool_defs: dict[str, ToolDefinition] = {}
@@ -175,6 +178,7 @@ class Pipeline(ABC):
 
             prompt = self._build_llm_messages()
             tools = self._llm_tool_format()
+            self._log_llm_request(prompt, tools)
 
             result = await self._llm.complete(
                 prompt,
@@ -206,6 +210,22 @@ class Pipeline(ABC):
         """Convert tool definitions to provider-native format."""
         # Default to Anthropic format — provider can transform as needed
         return [t.to_anthropic_tool() for t in self.tool_definitions]
+
+    def _log_llm_request(
+        self,
+        messages: list[dict],
+        tools: list[dict],
+    ) -> None:
+        """Dump the LLM request payload to ``log/`` for debugging."""
+        if not self._request_logger:
+            return
+        self._request_logger.log(
+            session_id=self._session.id,
+            model=self._cfg.inference_config.model,
+            system_prompt=self._cfg.inference_config.system_prompt,
+            messages=messages,
+            tools=tools,
+        )
 
     # ── Abstract ────────────────────────────────────────────────────────
 
@@ -245,6 +265,7 @@ class InteractivePipeline(Pipeline):
 
         prompt = self._build_llm_messages()
         tools = self._llm_tool_format()
+        self._log_llm_request(prompt, tools)
 
         result = await self._llm.complete(
             prompt,
@@ -307,6 +328,7 @@ class AutoPipeline(Pipeline):
 
         prompt = self._build_llm_messages()
         tools = self._llm_tool_format()
+        self._log_llm_request(prompt, tools)
 
         result = await self._llm.complete(
             prompt,
