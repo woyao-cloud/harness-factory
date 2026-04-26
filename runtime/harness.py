@@ -130,7 +130,15 @@ class HarnessRuntime:
     def _build_pipeline(self) -> Pipeline:
         """Select pipeline strategy from spec/config."""
         strategy = (self._spec.pipeline_strategy or self._cfg.pipeline_strategy).lower()
+        # 
+        from dataclasses import replace
+        from .types import InferenceConfig
+        inf_cfg = replace(
+            InferenceConfig(),
+            system_prompt=self._spec.system_prompt_template,
+        )
         pipeline_cfg = PipelineConfig(
+            inference_config=inf_cfg,
             max_tool_rounds=self._cfg.max_tool_rounds,
             tool_as_messages=True,
         )

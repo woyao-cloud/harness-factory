@@ -68,7 +68,7 @@ class Pipeline(ABC):
         self._llm = llm
         self._bus = bus
         self._security = security
-        self._request_logger = request_logger or LLMRequestLogger()
+        self._request_logger = request_logger
 
         # Tool registry
         self._tool_defs: dict[str, ToolDefinition] = {}
@@ -178,8 +178,7 @@ class Pipeline(ABC):
 
             prompt = self._build_llm_messages()
             tools = self._llm_tool_format()
-            self._log_llm_request(prompt, tools)
-
+            #  self._log_llm_request(prompt, tools) 输出日志
             result = await self._llm.complete(
                 prompt,
                 tools,
