@@ -23,37 +23,12 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 WORKER_SYSTEM_PROMPT = """\
-You are a research worker agent. Your job is to execute a research plan \
-by searching for papers, fetching content, reading files, and writing summaries.
+You are a research worker. Execute the plan by searching, reading, and writing.
 
-## Available tools
+Available tools: web_search, web_fetch, search, read, write, edit, glob, grep
 
-- web_search — Search the web for information
-- web_fetch — Fetch content from a URL
-- read — Read a local file
-- write — Write content to a local file
-- edit — Edit a file by replacing text
-- glob — List files matching a pattern
-- grep — Search for text within files
-
-## How to work
-
-You will be given a plan with subtasks. Complete each subtask in order, \
-respecting dependencies. Use the tools to search, read, write, and process data.
-
-## Output format
-
-When you finish all tasks, provide a summary of what was accomplished:
-
-<work_report>
-<task id="task_1" status="completed">
-Summary of what was done for task_1, including file paths.
-</task>
-<task id="task_2" status="failed">
-Explanation of why this task could not be completed.
-</task>
-</work_report>
-"""
+Complete each task in order, respecting dependencies. Use tools as needed.
+When ALL tasks are done, output a ## Work Report section with each task's status."""
 
 
 class WorkerAgent(AgentBase):
@@ -69,10 +44,13 @@ class WorkerAgent(AgentBase):
         llm: LLMProvider,
         tools: list[Any] | None = None,
         model: str = "deepseek-v4-flash:cloud",
+        system_prompt: str | None = None,
+        instructions_override: str | None = None,
     ) -> None:
+        self._instructions_override = instructions_override
         config = AgentConfig(
             role=AgentRole.WORKER,
-            system_prompt=WORKER_SYSTEM_PROMPT,
+            system_prompt=system_prompt or WORKER_SYSTEM_PROMPT,
             model=model,
             max_tool_rounds=25,
             security_default_decision="ask",
@@ -84,7 +62,9 @@ class WorkerAgent(AgentBase):
         """Execute the plan from the given context."""
         try:
             prompt = self._build_worker_prompt(context)
+            logger.info("Worker prompt sent to LLM")
             result = await self._pipeline.turn(UserInput(text=prompt))
+            logger.info("Worker response (first 300): %s", result.text[:300])
             report = self._parse_work_report(result.text)
 
             # Update task statuses based on report
@@ -133,39 +113,67 @@ class WorkerAgent(AgentBase):
             )
             lines.append(context.revision_feedback)
 
+        instructions = (
+            self._instructions_override
+            if self._instructions_override
+            else "Work through each task in order. Use the available tools to "
+                 "search for information, read files, and save your findings."
+        )
         lines.append(
-            "\n## Instructions\n\n"
-            "Work through each task in order. Use the available tools to "
-            "search for information, read files, and save your findings. "
-            "When finished, output a <work_report> with the status of each task."
+            f"\n## Instructions\n\n{instructions}\n\n"
+            "When ALL tasks are done, output your work report in this exact "
+            "Markdown format (no extra text after it):\n\n"
+            "## Work Report\n\n"
+            "### Task: task_1\n"
+            "**Status**: completed\n"
+            "Summary of what was done for task_1, including file paths.\n\n"
+            "### Task: task_2\n"
+            "**Status**: failed\n"
+            "Explanation of why this task could not be completed."
         )
         return "\n".join(lines)
 
     @staticmethod
     def _parse_work_report(text: str) -> dict[str, str]:
-        """Parse <work_report> XML from LLM output into a dict of task_id -> status.
+        """Parse Markdown work report from LLM output into a dict of task_id -> status.
 
-        Returns {task_id: status_text, ...}
+        Looks for a ``## Work Report`` section with ``### Task: <id>``
+        subsections containing ``**Status**:``. Returns {task_id: status_text, ...}
         """
-        report_match = re.search(
-            r"<work_report>\s*(.*?)\s*</work_report>",
+        # Locate the Work Report section (## but not ###)
+        report_section = re.search(
+            r"##\s*Work Report\s*(.*?)(?=\n##(?!#)|\Z)",
             text, re.DOTALL | re.IGNORECASE,
         )
-        if not report_match:
-            logger.warning("No <work_report> XML found in worker output")
+        if not report_section:
+            logger.warning("No ## Work Report section found in worker output")
+            logger.warning("Raw worker output (first 500): %s", text[:500])
             return {}
 
-        report_content = report_match.group(1)
+        report_content = report_section.group(1)
         results: dict[str, str] = {}
+
+        # Extract each task section: ### Task: <id> ... (until next ### or end)
         task_pattern = re.compile(
-            r"""<task\s+id=(["'])([^"']+)\1"""
-            r"""\s*(?:status=(["'])([^"']*)\3)?\s*>(.*?)</task>""",
+            r"###\s*Task\s*:\s*(\S+)\s*(.*?)(?=\n###(?!#)|\Z)",
             re.DOTALL | re.IGNORECASE,
         )
         for match in task_pattern.finditer(report_content):
-            tid = match.group(2).strip()
-            status = (match.group(4) or "completed").strip()
-            summary = match.group(5).strip()
+            tid = match.group(1).strip()
+            task_body = match.group(2).strip()
+
+            # Extract status: **Status**: <value>
+            status_match = re.search(
+                r"\*\*Status\*\*\s*:\s*(\S+)", task_body, re.IGNORECASE
+            )
+            status = status_match.group(1).strip() if status_match else "completed"
+
+            # Everything after the status line
+            summary = task_body
+            if status_match:
+                # Remove the status line itself
+                summary = task_body[status_match.end():].strip()
+
             results[tid] = f"[{status}] {summary}"
 
         return results

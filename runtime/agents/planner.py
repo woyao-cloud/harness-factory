@@ -23,40 +23,13 @@ from .types import (
 logger = logging.getLogger(__name__)
 
 PLANNER_SYSTEM_PROMPT = """\
-You are a planning agent. Your job is to break down a user's request into a \
-structured plan with clear, sequential subtasks.
+You are a planning agent. Break the user's request into 3-8 clear subtasks.
 
-## How to plan
-
-1. Understand the user's goal thoroughly.
-2. If you need more information to plan effectively, use the available tools \
-(web search, fetch, read) to gather context first.
-3. Break the goal into 3-8 clear, sequential subtasks. Each subtask should:
-   - Be a single, focused action
-   - Have a clear deliverable
-   - Depend on previous subtasks only when necessary
-4. Identify which subtasks can run in parallel (no dependency between them).
-5. Output the plan in the following XML format:
-
-<plan>
-<goal>The user's original goal, restated clearly</goal>
-<context>Any important context or constraints for the worker</context>
-<task id="task_1" depends_on="">
-  Description of the first subtask
-</task>
-<task id="task_2" depends_on="task_1">
-  Description of the second subtask (depends on task_1)
-</task>
-</plan>
-
-## Guidelines
-
-- Be specific. Each task should produce a tangible output.
-- Tasks should not overlap in scope.
-- If dependencies exist, specify them. If not, leave depends_on empty.
-- Provide context that helps the worker understand approach and expected output.
-- The plan format is critical — the worker agent will parse it programmatically.
-"""
+Guidelines:
+- Each subtask has a single focus and a clear deliverable
+- Set depends_on for tasks that depend on other tasks
+- Be specific and actionable
+- Output ONLY the plan — no conversation, no extra text"""
 
 
 class PlannerAgent(AgentBase):
@@ -65,8 +38,8 @@ class PlannerAgent(AgentBase):
     The Planner:
     1. Takes the user's task description
     2. May use web tools to research the topic first
-    3. Produces a Plan with PlanItems in XML format
-    4. Parses the XML into structured Plan objects
+    3. Produces a Plan with PlanItems in Markdown format
+    4. Parses the Markdown into structured Plan objects
     """
 
     def __init__(
@@ -74,10 +47,11 @@ class PlannerAgent(AgentBase):
         llm: LLMProvider,
         tools: list[Any] | None = None,
         model: str = "deepseek-v4-flash:cloud",
+        system_prompt: str | None = None,
     ) -> None:
         config = AgentConfig(
             role=AgentRole.PLANNER,
-            system_prompt=PLANNER_SYSTEM_PROMPT,
+            system_prompt=system_prompt or PLANNER_SYSTEM_PROMPT,
             model=model,
             max_tool_rounds=10,
             security_default_decision="allow",
@@ -91,11 +65,22 @@ class PlannerAgent(AgentBase):
             prompt_text = (
                 f"## User Request\n\n{context.user_task}\n\n"
                 f"## Instructions\n\n"
-                f"Analyze this request and create a detailed plan. "
-                f"Use web search if you need to research the topic first, "
-                f"then output your plan in XML format inside <plan> tags."
+                f"Create a detailed plan with 3-8 subtasks. "
+                f"Output ONLY the plan in this exact Markdown format "
+                f"(no extra text, no conversation):\n\n"
+                f"## Plan\n\n"
+                f"**Goal**: Restate the user's goal here\n\n"
+                f"**Context**: Context for the worker\n\n"
+                f"### Task: task_1\n"
+                f"Description of task 1\n"
+                f"- Depends on: (none)\n\n"
+                f"### Task: task_2\n"
+                f"Description of task 2\n"
+                f"- Depends on: task_1"
             )
+            logger.info("Planner prompt sent to LLM")
             result = await self._pipeline.turn(UserInput(text=prompt_text))
+            logger.info("Planner response (first 300): %s", result.text[:300])
             plan = self._parse_plan(result.text)
             logger.info(
                 "Planner created plan with %d tasks for: %s",
@@ -124,51 +109,73 @@ class PlannerAgent(AgentBase):
 
     @staticmethod
     def _parse_plan(text: str) -> Plan:
-        """Parse XML plan from LLM output into a Plan object.
+        """Parse Markdown plan from LLM output into a Plan object.
 
-        Falls back to a single-task plan if no valid XML is found.
+        Looks for a ``## Plan`` section with ``**Goal**:``, ``**Context**:``,
+        and ``### Task: <id>`` subsections. Falls back to a single-task plan
+        if no valid structure is found.
         """
-        # Extract <plan>...</plan> block
-        plan_match = re.search(
-            r"<plan>\s*(.*?)\s*</plan>", text, re.DOTALL | re.IGNORECASE
+        # Locate the Plan section (## but not ###)
+        plan_section = re.search(
+            r"##\s*Plan\s*(.*?)(?=\n##(?!#)|\Z)", text, re.DOTALL | re.IGNORECASE,
         )
-        if not plan_match:
-            logger.warning("No <plan> XML found in planner output, using fallback")
+        if not plan_section:
+            logger.warning("No ## Plan section found in planner output, using fallback")
+            logger.warning("Raw planner output (first 500 chars): %s", text[:500])
+            # Use the raw text as goal (first non-empty line)
+            fallback_goal = ""
+            for line in text.splitlines():
+                line = line.strip()
+                if line and not line.startswith("#"):
+                    fallback_goal = line[:200]
+                    break
             return Plan(
-                goal="",
+                goal=fallback_goal or text[:200],
                 context="",
-                items=(PlanItem(id="task_1", description=text[:500]),),
+                items=(PlanItem(id="task_1", description=text[:1000]),),
                 status=PlanStatus.PENDING,
             )
 
-        plan_content = plan_match.group(1)
+        plan_content = plan_section.group(1)
 
-        # Extract goal
+        # Extract goal — **Goal**: ...  (until next bold heading or end)
         goal_match = re.search(
-            r"<goal>(.*?)</goal>", plan_content, re.DOTALL | re.IGNORECASE
+            r"\*\*Goal\*\*\s*:\s*(.*?)(?=\n\s*\*\*|$|\n\s*###)", plan_content, re.DOTALL | re.IGNORECASE
         )
         goal = goal_match.group(1).strip() if goal_match else ""
 
-        # Extract context
+        # Extract context — **Context**: ...
         context_match = re.search(
-            r"<context>(.*?)</context>", plan_content, re.DOTALL | re.IGNORECASE
+            r"\*\*Context\*\*\s*:\s*(.*?)(?=\n\s*\*\*|$|\n\s*###)", plan_content, re.DOTALL | re.IGNORECASE
         )
         context = context_match.group(1).strip() if context_match else ""
 
-        # Extract all tasks (support both single and double quotes)
+        # Extract all tasks — ### Task: <id>
         items: list[PlanItem] = []
         task_pattern = re.compile(
-            r"""<task\s+id=(["'])([^"']+)\1"""
-            r"""\s*(?:depends_on=(["'])([^"']*)\3)?\s*>(.*?)</task>""",
+            r"###\s*Task\s*:\s*(\S+)\s*(.*?)(?=\n\s*###|\Z)",
             re.DOTALL | re.IGNORECASE,
         )
         for match in task_pattern.finditer(plan_content):
-            tid = match.group(2).strip()
-            depends_str = (match.group(4) or "").strip()
-            description = match.group(5).strip()
-            depends = tuple(
-                d.strip() for d in depends_str.split(",") if d.strip()
+            tid = match.group(1).strip()
+            task_body = match.group(2).strip()
+
+            # Extract description (everything before "- Depends on:")
+            deps_match = re.search(
+                r"- Depends on:\s*(.*)", task_body, re.IGNORECASE
             )
+            if deps_match:
+                description = task_body[:deps_match.start()].strip()
+                depends_str = deps_match.group(1).strip()
+            else:
+                description = task_body
+                depends_str = ""
+
+            # Normalize "(none)" or "" to empty tuple
+            depends: tuple[str, ...] = ()
+            if depends_str and depends_str.lower() not in ("(none)", "none", ""):
+                depends = tuple(d.strip() for d in depends_str.split(",") if d.strip())
+
             items.append(
                 PlanItem(
                     id=tid,
@@ -179,7 +186,7 @@ class PlannerAgent(AgentBase):
             )
 
         if not items:
-            logger.warning("No <task> elements found in plan XML, using fallback")
+            logger.warning("No task sections found in plan, using fallback")
             return Plan(
                 goal=goal or "",
                 context=context,

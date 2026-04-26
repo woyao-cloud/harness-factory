@@ -92,14 +92,10 @@ def create_multiagent_coordinator(
     # Worker: all tools (file + web)
     worker = WorkerAgent(llm=llm, tools=file_tools + web_tools, model=model)
 
-    # Reviewer: read-only tools (examine outputs)
+    # Reviewer: no tools (text-based review only — some models 500 on tool defs)
     reviewer = ReviewAgent(
         llm=llm,
-        tools=[
-            ReadTool(allowed_roots=allowed),
-            GlobTool(allowed_roots=allowed),
-            GrepTool(allowed_roots=allowed),
-        ],
+        tools=None,
         model=model,
     )
 

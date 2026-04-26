@@ -10,6 +10,7 @@ State machine::
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -20,6 +21,7 @@ from .types import (
     AgentResult,
     AgentRole,
     OrchestratorState,
+    Plan,
     PlanStatus,
     ReviewResult,
     ReviewVerdict,
@@ -67,11 +69,17 @@ class AgentCoordinator:
     def context(self) -> AgentContext:
         return self._context
 
-    async def run(self, user_task: str) -> AgentResult:
+    async def run(
+        self,
+        user_task: str,
+        confirm_plan: Callable[[Plan], bool] | None = None,
+    ) -> AgentResult:
         """Run the full Planner → Worker → Review cycle.
 
         Args:
             user_task: The user's task description.
+            confirm_plan: Optional callback. Called with the plan after
+                planning. Return ``True`` to proceed, ``False`` to cancel.
 
         Returns:
             An AgentResult with the final output (from the worker or reviewer).
@@ -83,7 +91,7 @@ class AgentCoordinator:
 
         # Phase 1: Plan
         self._state = OrchestratorState.PLANNING
-        logger.info("Coordinator: planning phase for task: %s", user_task[:80])
+        logger.warning("Coordinator: planning phase for task: %s", user_task[:80])
         plan_result = await self._planner.run(self._context)
         if not plan_result.success:
             self._state = OrchestratorState.FAILED
@@ -105,6 +113,18 @@ class AgentCoordinator:
                 "Coordinator: plan created with %d tasks",
                 len(plan.items),
             )
+
+        # Phase 1.5: User confirmation (optional)
+        if confirm_plan is not None:
+            if not confirm_plan(plan):
+                self._state = OrchestratorState.FAILED
+                logger.warning("Coordinator: plan cancelled by user")
+                return AgentResult(
+                    role=AgentRole.PLANNER,
+                    text=plan_result.text,
+                    data={"plan": plan},
+                    error="Plan cancelled by user",
+                )
 
         # Phase 2-3: Execute + Review (with iteration)
         iteration = 0
