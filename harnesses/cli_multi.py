@@ -1,10 +1,10 @@
-"""CLI entry point for ResearchHarness.
+"""CLI entry point for multi-agent research.
 
 Usage::
 
-    research "Find papers on AI"
-    research --repl
-    research --mock "test query"
+    multi-research "Find papers on AI transformers"
+    multi-research --repl
+    multi-research --mock "test query"
 """
 
 from __future__ import annotations
@@ -16,8 +16,7 @@ from pathlib import Path
 
 import click
 
-from runtime.types import UserInput
-from harnesses.research import create_research_harness
+from harnesses.multiagent import create_multiagent_coordinator
 from harnesses.provider import create_provider
 
 
@@ -26,22 +25,8 @@ def _run_async(coro):
     return asyncio.run(coro)
 
 
-def _show_usage(harness) -> None:
-    """Display token usage summary from the session."""
-    usage = harness.total_usage
-    if usage.input_tokens or usage.output_tokens:
-        click.echo(
-            f"── Tokens: {usage.input_tokens} in  |  {usage.output_tokens} out  |  "
-            f"{usage.input_tokens + usage.output_tokens} total ──",
-            err=True,
-        )
-
-
 def _save_result(research_root: str, text: str, topic: str = "") -> str | None:
-    """Save final result text to ``{research_root}/research-output-{timestamp}.md``.
-
-    Returns the file path written, or ``None`` on failure.
-    """
+    """Save final result text to ``{research_root}/research-output-{timestamp}.md``."""
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     if topic:
         safe_topic = "".join(c if c.isalnum() or c in " _-" else "_" for c in topic)[:40]
@@ -69,16 +54,12 @@ def _save_result(research_root: str, text: str, topic: str = "") -> str | None:
 @click.option("--research-root", default="./research", help="Research workspace directory")
 @click.option("--repl", is_flag=True, help="Start interactive REPL mode")
 @click.option("--mock", is_flag=True, help="Use MockProvider (no API key needed)")
-def research(query, provider, api_key, model, research_root, repl, mock):
-    """Research assistant: search, fetch, read, and summarize papers.
+@click.option("--verbose", is_flag=True, help="Show detailed agent progress logs")
+@click.option("--max-iterations", default=3, help="Maximum review cycles")
+def multi_research(query, provider, api_key, model, research_root, repl, mock, verbose, max_iterations):
+    """Multi-agent research: plan → execute → review.
 
-    Examples:
-
-        research "Find papers on AI"
-
-        research --repl
-
-        research --mock "test query"
+    Uses Planner, Worker, and Review agents to collaboratively complete research tasks.
     """
     if mock:
         from runtime.llm_provider import MockProvider
@@ -90,17 +71,17 @@ def research(query, provider, api_key, model, research_root, repl, mock):
             click.echo(f"Error: {exc}", err=True)
             sys.exit(1)
 
-    harness = create_research_harness(
+    coordinator = create_multiagent_coordinator(
         research_root=research_root,
         llm=llm,
         model=model,
+        max_iterations=max_iterations,
+        verbose=verbose,
     )
-
-    harness.start()
 
     try:
         if repl:
-            _run_repl(harness, research_root)
+            _run_repl(coordinator, research_root)
         else:
             if not query:
                 click.echo(
@@ -109,20 +90,19 @@ def research(query, provider, api_key, model, research_root, repl, mock):
                     err=True,
                 )
                 sys.exit(1)
-            result = _run_async(harness.turn(UserInput(text=query)))
-            # 保存文件标识 saved = _save_result(research_root, result.text, query)
+            result = _run_async(coordinator.run(query))
             click.echo(result.text)
+            saved = _save_result(research_root, result.text, query)
             click.echo("── Done ──", err=True)
-            # if saved:
-                # click.echo(f"Result saved to {saved}", err=True)
-            _show_usage(harness)
+            if saved:
+                click.echo(f"Result saved to {saved}", err=True)
     finally:
-        harness.close()
+        pass
 
 
-def _run_repl(harness: "HarnessRuntime", research_root: str = "./research") -> None:
+def _run_repl(coordinator, research_root: str = "./research") -> None:
     """Interactive REPL loop."""
-    click.echo("Research REPL — type 'exit' to quit")
+    click.echo("Multi-Agent Research REPL — type 'exit' to quit")
     try:
         while True:
             try:
@@ -135,14 +115,14 @@ def _run_repl(harness: "HarnessRuntime", research_root: str = "./research") -> N
             if not text.strip():
                 continue
             try:
-                result = _run_async(harness.turn(UserInput(text=text)))
+                result = _run_async(coordinator.run(text))
                 _save_result(research_root, result.text, text)
                 click.echo(result.text)
             except Exception as exc:
                 click.echo(f"Error: {exc}", err=True)
     finally:
-        _show_usage(harness)
+        pass
 
 
 if __name__ == "__main__":
-    research()
+    multi_research()

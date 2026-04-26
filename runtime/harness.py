@@ -17,7 +17,7 @@ from .llm_provider import LLMProvider, MockProvider
 from .message_bus import EventHandler, MessageBus
 from .pipeline import AutoPipeline, InteractivePipeline, Pipeline, PipelineConfig, ToolExecutorFn
 from .request_logger import LLMRequestLogger
-from .security import SecurityConfig, SecurityGate
+from .security import Decision, SecurityConfig, SecurityGate
 from .session import Session, SessionConfig
 from .streaming import StreamPipeline
 from .checkpoint import AutoSaveManager, CheckpointConfig, CheckpointStore
@@ -81,9 +81,18 @@ class HarnessRuntime:
         # Core components
         self._bus = MessageBus()
 
+        # Map string config value to Decision enum
+        _decision_map = {
+            "allow": Decision.ALLOW,
+            "ask": Decision.ASK,
+            "deny": Decision.DENY,
+        }
+        default_decision = _decision_map.get(
+            self._cfg.security_default_decision.lower(), Decision.ASK
+        )
         self._security = SecurityGate(
             SecurityConfig(
-                default_decision="ASK",
+                default_decision=default_decision,
                 require_approval_for=self._cfg.security_require_approval,
             )
         )

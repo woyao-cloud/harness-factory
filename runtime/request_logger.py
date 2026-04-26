@@ -51,7 +51,8 @@ class LLMRequestLogger:
         Returns the file path written, or ``None`` on failure.
         """
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")[:23]
-        filename = f"{session_id}_{timestamp}.json"
+        # _{timestamp}
+        filename = f"{session_id}.json"
         path = self._log_dir / filename
 
         payload: dict[str, Any] = {

@@ -3,7 +3,7 @@ _pycache_/
 *.py[cod]
 *.pyc
 *$py.class
-logs/
+log/
 *.egg-info/
 dist/
 build/

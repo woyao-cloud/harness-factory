@@ -95,7 +95,7 @@ When you finish researching a topic, you MUST save the complete report to a file
 using the ``write`` tool:
 
 - **Filename**: ``{topic-slug}-summary.md`` (e.g. ``shenzhen-gaokao-math-2025-summary.md``)
-- **Path**: Save it in the current working directory (just use the filename, no path prefix)
+- **Path**: Save it inside the ``research/`` directory (e.g. ``research/shenzhen-gaokao-math-summary.md``)
 - **When**: After gathering all information and writing your final analysis
 - **Content**: The full report with all sections, findings, and citations
 
