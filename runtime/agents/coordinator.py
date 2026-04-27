@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 from .planner import PlannerAgent
@@ -35,6 +36,7 @@ logger = logging.getLogger(__name__)
 class CoordinatorConfig:
     max_iterations: int = 3
     verbose: bool = False
+    workspace_dir: str = ""
 
 
 class AgentCoordinator:
@@ -125,6 +127,16 @@ class AgentCoordinator:
                     data={"plan": plan},
                     error="Plan cancelled by user",
                 )
+
+        # Save plan to workspace file (for worker to read via tools)
+        if self._cfg.workspace_dir:
+            workspace = Path(self._cfg.workspace_dir).resolve()
+            workspace.mkdir(parents=True, exist_ok=True)
+            plan_path = workspace / "plan.md"
+            plan_path.write_text(plan_result.text, encoding="utf-8")
+            self._context = self._context.with_plan_file(str(plan_path))
+            if self._cfg.verbose:
+                logger.info("Coordinator: plan saved to %s", plan_path)
 
         # Phase 2-3: Execute + Review (with iteration)
         iteration = 0

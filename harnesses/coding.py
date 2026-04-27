@@ -138,6 +138,7 @@ def create_coding_coordinator(
     config = CoordinatorConfig(
         max_iterations=max_iterations,
         verbose=verbose,
+        workspace_dir=output_dir,
     )
     return AgentCoordinator(
         planner=planner,

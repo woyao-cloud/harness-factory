@@ -168,6 +168,7 @@ class AgentContext:
 
     user_task: str = ""
     plan: Plan = field(default_factory=Plan)
+    plan_file: str = ""
     work_result: AgentResult = field(default_factory=AgentResult)
     review_result: ReviewResult = field(default_factory=ReviewResult)
     iteration: int = 0
@@ -178,6 +179,19 @@ class AgentContext:
         return AgentContext(
             user_task=self.user_task,
             plan=plan,
+            plan_file=self.plan_file,
+            work_result=self.work_result,
+            review_result=self.review_result,
+            iteration=self.iteration,
+            max_iterations=self.max_iterations,
+            revision_feedback=self.revision_feedback,
+        )
+
+    def with_plan_file(self, path: str) -> AgentContext:
+        return AgentContext(
+            user_task=self.user_task,
+            plan=self.plan,
+            plan_file=path,
             work_result=self.work_result,
             review_result=self.review_result,
             iteration=self.iteration,
@@ -189,6 +203,7 @@ class AgentContext:
         return AgentContext(
             user_task=self.user_task,
             plan=self.plan,
+            plan_file=self.plan_file,
             work_result=work_result,
             review_result=self.review_result,
             iteration=self.iteration,
@@ -200,6 +215,7 @@ class AgentContext:
         return AgentContext(
             user_task=self.user_task,
             plan=self.plan,
+            plan_file=self.plan_file,
             work_result=self.work_result,
             review_result=review_result,
             iteration=self.iteration,
@@ -211,6 +227,7 @@ class AgentContext:
         return AgentContext(
             user_task=self.user_task,
             plan=self.plan,
+            plan_file=self.plan_file,
             work_result=self.work_result,
             review_result=self.review_result,
             iteration=iteration,
@@ -222,6 +239,7 @@ class AgentContext:
         return AgentContext(
             user_task=self.user_task,
             plan=self.plan,
+            plan_file=self.plan_file,
             work_result=self.work_result,
             review_result=self.review_result,
             iteration=self.iteration,

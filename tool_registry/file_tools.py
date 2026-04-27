@@ -99,7 +99,7 @@ class ReadTool(BaseTool):
 
     name = "read"
     description = "Read the contents of a file at the given path"
-    param_aliases = {"filepath": "file_path"}
+    param_aliases = {"filepath": "file_path", "filePath": "file_path"}
     parameters = (
         ParamSpec("file_path", description="Absolute or relative path to the file"),
         ParamSpec(
@@ -164,7 +164,7 @@ class WriteTool(BaseTool):
 
     name = "write"
     description = "Write content to a file (creates or overwrites)"
-    param_aliases = {"filepath": "file_path"}
+    param_aliases = {"filepath": "file_path", "filePath": "file_path"}
     parameters = (
         ParamSpec("file_path", description="Path to the file to write"),
         ParamSpec("content", description="Content to write"),
@@ -279,7 +279,7 @@ class EditTool(BaseTool):
 
     name = "edit"
     description = "Replace text in a file (substring or regex, with optional line-range targeting)"
-    param_aliases = {"filepath": "file_path"}
+    param_aliases = {"filepath": "file_path", "filePath": "file_path"}
     parameters = (
         ParamSpec("file_path", description="Path to the file to edit"),
         ParamSpec("old_string", description="Text to find and replace (substring or regex pattern)"),

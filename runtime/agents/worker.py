@@ -93,17 +93,28 @@ class WorkerAgent(AgentBase):
 
     def _build_worker_prompt(self, context: AgentContext) -> str:
         """Build the prompt for the worker from the plan and context."""
-        plan = context.plan
-        lines = [f"## Goal\n\n{plan.goal}"]
-        if plan.context:
-            lines.append(f"\n## Context\n\n{plan.context}")
+        lines: list[str] = []
 
-        lines.append("\n## Tasks\n")
-        for item in plan.items:
-            deps = f" (depends on: {', '.join(item.depends_on)})" if item.depends_on else ""
-            lines.append(f"### {item.id}{deps}")
-            lines.append(item.description)
-            lines.append("")
+        if context.plan_file:
+            # Plan is on disk — tell LLM to read it via tools
+            lines.append("## Plan\n")
+            lines.append(
+                f"The plan has been saved to **{context.plan_file}**. "
+                f"Use the **read** tool with `file_path=\"{context.plan_file}\"` "
+                f"to see the full task list.\n"
+            )
+        else:
+            # Fallback: embed plan directly (backward compatible)
+            plan = context.plan
+            lines.append(f"## Goal\n\n{plan.goal}")
+            if plan.context:
+                lines.append(f"\n## Context\n\n{plan.context}")
+            lines.append("\n## Tasks\n")
+            for item in plan.items:
+                deps = f" (depends on: {', '.join(item.depends_on)})" if item.depends_on else ""
+                lines.append(f"### {item.id}{deps}")
+                lines.append(item.description)
+                lines.append("")
 
         if context.revision_feedback:
             lines.append("\n## Revision Feedback\n")

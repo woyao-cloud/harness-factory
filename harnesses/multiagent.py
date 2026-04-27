@@ -103,6 +103,7 @@ def create_multiagent_coordinator(
     config = CoordinatorConfig(
         max_iterations=max_iterations,
         verbose=verbose,
+        workspace_dir=research_root,
     )
     return AgentCoordinator(
         planner=planner,
